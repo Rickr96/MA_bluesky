@@ -1,0 +1,1 @@
+star_ind,star_name,arrival_time,OB_nb,ObsNum,plan_inds,det_time,det_status,det_SNR,det_fZ,det_params,char_time,char_status,char_SNR,char_fZ,char_params,FA_det_status,FA_char_status,FA_char_SNR,FA_char_fEZ,FA_char_dMag,FA_char_WA,det_mode,char_mode,exoplanetObsTime,N_sim,Rp_found,Mp_found,a_found
