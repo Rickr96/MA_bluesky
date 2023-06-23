@@ -1,3 +1,6 @@
 [submodule "EXOSIMS"]
 	path = EXOSIMS
 	url = https://github.com/Rickr96/ExoSims_Rick-Branch.git
+[submodule "LIFEsim-Rick_Branch"]
+	path = LIFEsim-Rick_Branch
+	url = https://github.com/Rickr96/LIFEsim-Rick_Branch.git
