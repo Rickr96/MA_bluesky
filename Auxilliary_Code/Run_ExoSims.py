@@ -9,7 +9,7 @@ import glob
 from pathlib import Path
 
 parent_dir = Path(__file__).parents[1]
-os.chdir(parent_dir.joinpath("ExoSims_Rick-Branch"))
+os.chdir(parent_dir.joinpath("EXOSIMS"))
 sys.path.append(os.getcwd())
 
 import EXOSIMS

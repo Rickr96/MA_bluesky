@@ -11,7 +11,7 @@ import warnings
 from pathlib import Path
 from scipy.stats import gaussian_kde, iqr
 
-os.chdir("C:/Users/Rick/OneDrive/ETH/_MA/Compact_Bluesky/ExoSims_Rick-Branch")
+os.chdir("C:/Users/Rick/OneDrive/ETH/_MA/Compact_Bluesky/EXOSIMS")
 sys.path.append(os.getcwd())
 
 import EXOSIMS
