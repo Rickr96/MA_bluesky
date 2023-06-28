@@ -1,7 +1,8 @@
 import sys
 import os
+from pathlib import Path
 
-os.chdir("C:/Users/Rick/OneDrive/ETH/_MA/Compact_Bluesky/LIFEsim-Rick_Branch")
+parent_dir = Path(__file__).parents[1]
 sys.path.append(os.getcwd())
 import lifesim
 
