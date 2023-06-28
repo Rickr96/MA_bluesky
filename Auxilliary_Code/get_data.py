@@ -644,4 +644,4 @@ def __main__():
     exo_trans.to_hdf(exosim_cat_path, key='catalog')
 
     run_life(pythonpath=str(lifesim_path),
-             script_path=current_dir.joinpath("Running_Sims/LIFEsim_ExoSim_Inputs.py"))
+             script_path=current_dir.joinpath("LIFEsim_ExoSim_Inputs.py"))
