@@ -922,6 +922,14 @@ exo_data_det = gd.data_only_det(exo_data)
 # Adjust LIFE Data
 life_data_det = gd.data_only_det(life_data)
 
+# Only Earth-Like
+mask_life_EE = (life_data_det["radius_p"] > 0.5) & (life_data_det["radius_p"] < 2.5) & \
+               (life_data_det["Mp"] > 0.5) & (life_data_det["Mp"] < 12)
+mask_exo_EE = (exo_data_det["radius_p"] > 0.5) & (exo_data_det["radius_p"] < 2.5) & \
+              (exo_data_det["Mp"] > 0.5) & (exo_data_det["Mp"] < 12)
+life_data_det_EE = life_data_det[mask_life_EE]
+exo_data_det_EE = exo_data_det[mask_exo_EE]
+
 # Bar Plot
 bar_cat_plot(life_data, exo_data, ptypes, 'ptype', stypes, 'stype', save=True, result_path=results_path,
              name="ptypes_stypes")
@@ -1047,4 +1055,33 @@ kde_distribution_plot(np.log10(life_data_det["rp"].astype(float)), np.log10(life
                       results_path, "KDE Distribution LIFEsim Detected log(d)-log(Mp) Scatter Plot",
                       "log_10 Exoplanet Orbit [AU]", "log_10 Exoplanet Mass [M_E]",
                       xlim=[-2, 2], ylim=[-1, 2.5], detected=True)
+
+# KDI only Earth Like planets detected
+kde_distribution_plot(np.log10(exo_data_det_EE["radius_p"].astype(float)), np.log10(exo_data_det_EE["Mp"].astype(float)),
+                      results_path, "KDE Distribution Exosims Detected log(Rp)-log(Mp) Scatter Plot",
+                      "log_10 Exoplanet Radius [R_E]", "log_10 Exoplanet Mass [M_E]",
+                      xlim=[-0.25, 0.75], ylim=[-1, 1.5], detected=True)
+kde_distribution_plot(np.log10(life_data_det_EE["radius_p"].astype(float)), np.log10(life_data_det_EE["Mp"].astype(float)),
+                      results_path, "KDE Distribution LIFEsim Detected log(Rp)-log(Mp) Scatter Plot",
+                      "log_10 Exoplanet Radius [R_E]", "log_10 Exoplanet Mass [M_E]",
+                      xlim=[-0.25, 0.75], ylim=[-1, 1.5], detected=True)
+kde_distribution_plot(np.log10(exo_data_det_EE["distance_p"].astype(float)), np.log10(exo_data_det_EE["Mp"].astype(float)),
+                      results_path, "KDE Distribution Exosims Detected log(d)-log(Mp) Scatter Plot (Only EL)",
+                      "log_10 Exoplanet Orbit [AU]", "log_10 Exoplanet Mass [M_E]",
+                      xlim=[-2, 2], ylim=[-1, 1.5], detected=True)
+kde_distribution_plot(np.log10(life_data_det_EE["rp"].astype(float)), np.log10(life_data_det_EE["Mp"].astype(float)),
+                      results_path, "KDE Distribution LIFEsim Detected log(d)-log(Mp) Scatter Plot (Only EL)",
+                      "log_10 Exoplanet Orbit [AU]", "log_10 Exoplanet Mass [M_E]",
+                      xlim=[-2, 2], ylim=[-1, 1.5], detected=True)
+
+histogram_distribution_plot(np.log10(life_data_det_EE["radius_p"].astype(float)), np.log(exo_data_det_EE["radius_p"].astype(float)), results_path,
+                            "log Distribution Radius Planets Detected Planets (Only EL)",
+                            "Planet Radius log [R_E]", xlim=[-0.25, 0.75], detected=True)
+histogram_distribution_plot(np.log10(life_data_det_EE["Mp"].astype(float)), np.log10(exo_data_det_EE["Mp"].astype(float)), results_path,
+                            "log Distribution Mass Planets Detected Planets (Only EL)",
+                            "log Planet Mass [M_E]", xlim=[-1, 1.5], detected=True)
+histogram_distribution_plot(np.log10(life_data_det_EE["rp"].astype(float)), np.log10(exo_data_det_EE["distance_p"].astype(float)), results_path,
+                            "log Distribution Distance Detected Planets (Only EL)",
+                            "log Planet Distance [AU]",
+                            xlim=[-2.5, 1.5], detected=True)
 print("Analyse Data Finished!")

@@ -633,7 +633,7 @@ def run_life(pythonpath, script_path):
 def __main__():
     # Paths
     current_dir = Path(__file__).parent.resolve()
-    exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
+    exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS/")
     stellar_table_path = current_dir.joinpath("Analysis/Populations/LIFEsim_StellarCat_Table.csv")
     stellar_cat_path = current_dir.joinpath("Analysis/Populations/TargetList_exosims.csv")
     lifesim_path = current_dir.parent.joinpath("LIFEsim-Rick_Branch")
