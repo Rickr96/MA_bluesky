@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 
 parent_dir = Path(__file__).parents[1]
+life_dir = parent_dir.joinpath("LIFEsim-Rick_Branch")
+os.chdir(life_dir)
 sys.path.append(os.getcwd())
 import lifesim
 
@@ -18,9 +20,8 @@ if __name__ == '__main__':
     bus.data.options.set_scenario('baseline')
 
     # ---------- Loading the Catalog ----------
-    # bus.data.catalog_from_ppop(input_path='C:/Work/MSA/LIFEsim-Rick_Branch/ppop_catalog.txt')
-    bus.data.catalog_from_ppop(input_path='C:/Users/Rick/OneDrive/ETH/_MA/Compact_Bluesky/LIFEsim-Rick_Branch'
-                                          '/exosim_cat/exosim_univ.hdf5')
+    ppop_path = life_dir.joinpath('exosim_cat/exosim_univ.hdf5')
+    bus.data.catalog_from_ppop(input_path=str(ppop_path))
     # bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)  # remove all A stars
     # bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)  # remove M stars > 10pc to
     # speed up calculation
