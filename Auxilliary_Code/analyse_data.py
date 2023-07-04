@@ -886,7 +886,7 @@ def kde_distribution_plot(data_d1, data_d2, result_path, name, xlabel, ylabel, x
 
 
 # Run EXOsims in the given config as highlighted in Run_ExoSims.py and the input config file
-# rexo.__main__()
+rexo.__main__()
 # Get the produced EXOsims data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
 gd.__main__()
 

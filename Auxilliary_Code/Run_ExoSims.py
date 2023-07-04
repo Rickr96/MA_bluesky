@@ -149,4 +149,4 @@ def __main__():
     scriptfile = current_dir.joinpath("Running_Sims/inputconfig.json")
     outpath = current_dir.joinpath("Analysis/Output")
     sim = EXOSIMS.MissionSim.MissionSim(scriptfile)
-    exosim_run(sim, outpath, N_sim=5, nprocess=1)
+    exosim_run(sim, outpath, N_sim=100, nprocess=1)
