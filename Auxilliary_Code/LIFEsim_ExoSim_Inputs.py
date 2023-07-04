@@ -74,6 +74,6 @@ if __name__ == '__main__':
     instrument.get_snr()
 
     opt.ahgs()
-
+    output_dir = parent_dir.joinpath('Auxilliary_Code/Analysis/Output/LIFEsim')
     # ---------- Saving the Results ----------
-    bus.data.export_catalog(output_path='/Analysis/Output/LIFEsim/demo1.hdf5')
+    bus.data.export_catalog(output_path=str(output_dir))
