@@ -533,14 +533,20 @@ def import_data(exo_outpath,life_outpath, life_file_name, star_cat_path):
             res = pickle.load(g, encoding="latin1")
 
         pinds, dets, WAs, dMag, rs, fEZ, fZs, dettime, chartime, tottime = [], [], [], [], [], [], [], [], [], []
-        det_SNR, char_SNR, radius_p, semi_major, Ageo, ecc, Mp, FP = [], [], [], [], [], [], [], []
+        det_SNR, char_SNR, radius_p, semi_major, Ageo, ecc, Mp, FP, Ds = [], [], [], [], [], [], [], [], []
         star_name, stypes = [], []
         for row in res["DRM"]:
             for ix, det in enumerate(row["det_status"]):
                 # Stellar Parameters
                 starname = row["star_name"]
                 star_name.append(starname)
-                stypes.append(star_cat.loc[star_cat['Name'] == row["star_name"], 'Spec'].iloc[0])
+
+                # Star Distance
+                D = star_cat.loc[star_cat['Name'] == starname, 'dist'].iloc[0]
+                Ds.append(D)
+
+                # Stellar Type
+                stypes.append(star_cat.loc[star_cat['Name'] == starname, 'Spec'].iloc[0])
                 # Planet Parameters
 
                 # Planet Index
@@ -588,6 +594,7 @@ def import_data(exo_outpath,life_outpath, life_file_name, star_cat_path):
                                   'nuniverse': counter,
                                   'sname': star_name,
                                   'stype': stypes,
+                                  'distance_s': Ds,
                                   'pindex': pinds,
                                   'detected': dets,
                                   'detSNR': det_SNR,
