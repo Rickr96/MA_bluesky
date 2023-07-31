@@ -533,8 +533,8 @@ def import_data(exo_outpath,life_outpath, life_file_name, star_cat_path):
             res = pickle.load(g, encoding="latin1")
 
         pinds, dets, WAs, dMag, rs, fEZ, fZs, dettime, chartime, tottime = [], [], [], [], [], [], [], [], [], []
-        det_SNR, char_SNR, radius_p, semi_major, Ageo, ecc, Mp, FP, Ds = [], [], [], [], [], [], [], [], []
-        star_name, stypes = [], []
+        det_SNR, char_SNR, radius_p, semi_major, Ageo, ecc, Mp, FP = [], [], [], [], [], [], [], []
+        star_name, stypes, Ds, L = [], [], [], []
         for row in res["DRM"]:
             for ix, det in enumerate(row["det_status"]):
                 # Stellar Parameters
@@ -587,14 +587,16 @@ def import_data(exo_outpath,life_outpath, life_file_name, star_cat_path):
                 Mp.append(res["systems"]["Mp"][row["plan_inds"][ix]] / u.M_earth)
 
                 # Incident Flux density for which stellar luminosity and planet distance are needed
-                L = star_cat.loc[star_cat['Name'] == starname, 'L'].iloc[0]
-                FP.append(planet_incident_flux_from_L(L, distance_p * u.AU))
+                L_dummy = star_cat.loc[star_cat['Name'] == starname, 'L'].iloc[0]
+                L.append(L_dummy)
+                FP.append(planet_incident_flux_from_L(L_dummy, distance_p * u.AU))
 
         planet_df = pd.DataFrame({'fname': f,
                                   'nuniverse': counter,
                                   'sname': star_name,
                                   'stype': stypes,
                                   'distance_s': Ds,
+                                  'L_star': L,
                                   'pindex': pinds,
                                   'detected': dets,
                                   'detSNR': det_SNR,

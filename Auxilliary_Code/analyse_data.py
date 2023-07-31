@@ -10,6 +10,7 @@ import time
 import warnings
 from pathlib import Path
 from scipy.stats import gaussian_kde, iqr
+import forecaster.mr_forecast as mr
 
 parent_dir = Path(__file__).parents[1]
 os.chdir(parent_dir.joinpath("EXOSIMS"))
@@ -520,6 +521,15 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
     :param df_exo: dataframe with Exo data
     :return: prints (and saves) the plot
     """
+    new_dir = result_path.joinpath("Bar_Cat_Plots")
+
+    if not os.path.exists(new_dir):
+        # Create the "Radius_Mass_Doublecheck" directory if it doesn't exist
+        os.makedirs(new_dir)
+
+    # Update results_path to point to the "Radius_Mass_Doublecheck" directory
+    result_path = new_dir
+
     t1 = time.time()
 
     # Bring Data in wished Format
@@ -745,7 +755,7 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
 
 
 def histogram_distribution_plot(life_data_d, exo_data_d, result_path, name, xlabel, xlim=None, ylim=None,
-                                detected=False):
+                                detected=False, draw_HZ=False, HZ_inner=None, HZ_outer=None):
     """
     Plots the distribution of the given data from life and exosim into a histogram plot showing the
     distribution of the arbitrary value given as input. As LIFEsim and ExoSim data do not have the same total
@@ -762,6 +772,15 @@ def histogram_distribution_plot(life_data_d, exo_data_d, result_path, name, xlab
     :param detected: boolean parameter if True additional total amount of detections is added to the plot
     :return: histogram plot showing the distribution of any value given as input
     """
+    new_dir = result_path.joinpath("Histograms")
+
+    if not os.path.exists(new_dir):
+        # Create the "Radius_Mass_Doublecheck" directory if it doesn't exist
+        os.makedirs(new_dir)
+
+    # Update results_path to point to the "Radius_Mass_Doublecheck" directory
+    result_path = new_dir
+
     life_data_original = life_data_d
     exo_data_original = exo_data_d
 
@@ -781,6 +800,12 @@ def histogram_distribution_plot(life_data_d, exo_data_d, result_path, name, xlab
     axs[0].set_ylabel('probability density function', fontsize=10, labelpad=10)
     axs[0].axvline(life_data_d.mean(), color='r', linewidth=1)
     axs[1].axvline(exo_data_d.mean(), color='r', linewidth=1)
+
+    if draw_HZ:
+        axs[0].axvline(HZ_inner, color='k', linewidth=1)
+        axs[0].axvline(HZ_outer, color='k', linewidth=1)
+        axs[1].axvline(HZ_inner, color='k', linewidth=1)
+        axs[1].axvline(HZ_outer, color='k', linewidth=1)
 
     # Pre-Amble to scale the y-axis accordingly
     # Find the maximum density value
@@ -852,6 +877,15 @@ def histogram_single(life_data_d, result_path, name, xlabel, xlim=None, ylim=Non
         :param ylim: limits of the y-axis
         :return: histogram plot showing the distribution of any value given as input
         """
+    new_dir = result_path.joinpath("Histograms")
+
+    if not os.path.exists(new_dir):
+        # Create the "Radius_Mass_Doublecheck" directory if it doesn't exist
+        os.makedirs(new_dir)
+
+    # Update results_path to point to the "Radius_Mass_Doublecheck" directory
+    result_path = new_dir
+
     life_data_original = life_data_d
 
     if xlim is not None:
@@ -919,6 +953,15 @@ def kde_distribution_plot(data_d1, data_d2, result_path, name, xlabel, ylabel, x
     :param detected: boolean parameter if True additional total amount of detections is added to the plot
     :return: histogram plot showing the distribution of any value given as input
     """
+
+    new_dir = result_path.joinpath("KDE_Distributions")
+
+    if not os.path.exists(new_dir):
+        # Create the "Radius_Mass_Doublecheck" directory if it doesn't exist
+        os.makedirs(new_dir)
+
+    # Update results_path to point to the "Radius_Mass_Doublecheck" directory
+    result_path = new_dir
 
     if xlim is None:
         xlim = [data_d1.min(), data_d1.max()]
@@ -1003,16 +1046,15 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     bar_cat_plot(life_data, exo_data, habitables, 'habitable', stypes, 'stype', save=True, result_path=results_path,
                  name="habitable_stypes")
 
-    # TODO: Histogram Plot for underlying population in: R_p, d_orbit, d_system and M_p
     ##################################
     # Population Sample Histograms ###
     ##################################
 
     histogram_single(life_data["radius_p"].astype(float), results_path, "Distribution Planet Radius Population Sample",
-                     "Planet Radius [R_E]", xlim=[0, 20])
+                     r'Planet Radius [R_{\oplus}]', xlim=[0, 20])
 
     histogram_single(life_data["Mp"].astype(float), results_path, "Distribution Planet Mass Population Sample",
-                     "Planet Mass [M_E]", xlim=[0, 100])
+                     r'Planet Mass [M_{\oplus}]', xlim=[0, 100])
 
     histogram_single(life_data["rp"].astype(float), results_path, "Distribution Orbital Distance Population Sample",
                      "Orbital Distance [AU]", xlim=[0, 50])
@@ -1023,19 +1065,19 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
 
     histogram_single(np.log10(life_data["radius_p"].astype(float)), results_path,
                      "Distribution Planet Radius Population Sample log-scale",
-                     "log_10 Planet Radius [R_E]", xlim=[0, 1.5])
+                     r'$log_{10}\ R/R_{\oplus}$', xlim=[0, 1.5])
 
     histogram_single(np.log10(life_data["Mp"].astype(float)), results_path,
                      "Distribution Planet Mass Population Sample log-scale",
-                     "log_10 Planet Mass [M_E]", xlim=[-1, 4])
+                     r'$log_{10}\ M/M_{\oplus}$', xlim=[-1, 4])
 
     histogram_single(np.log10(life_data["rp"].astype(float)), results_path,
                      "Distribution Orbital Distance Population Sample log-scale",
-                     "log_10 Orbital Distance [AU]", xlim=[-2.0, 2.0])
+                     r'$log_{10}\ d_{orbit}[AU]]$', xlim=[-2.0, 2.0])
 
     histogram_single(np.log10(life_data["distance_s"].astype(float)), results_path,
                      "Distribution System Distance Population Sample log-scale",
-                     "log_10 System Distance [pc]", xlim=[0, 1.5])
+                     r'$log_{10}\ d_{system}[pc]$', xlim=[0, 1.5])
 
     ##################################
     # Detected Planets Histograms ####
@@ -1045,44 +1087,44 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     histogram_distribution_plot(life_data_det["radius_p"].astype(float), exo_data_det["radius_p"].astype(float),
                                 results_path,
                                 "Distribution Planet Radius Detected Planets",
-                                "Planet Radius [R_E]", xlim=[0, 20], detected=True)
+                                r'Planet Radius [R_{\oplus}]', xlim=[0, 20], detected=True)
     histogram_distribution_plot(np.log10(life_data_det["radius_p"].astype(float)),
                                 np.log(exo_data_det["radius_p"].astype(float)), results_path,
                                 "log Distribution Planet Radius Detected Planets",
-                                "Planet Radius log [R_E]", xlim=[-0.25, 2.5], detected=True)
+                                r'$log_{10}\ R/R_{\oplus}$', xlim=[-0.25, 2.5], detected=True)
 
     # Planet Mass
     histogram_distribution_plot(life_data_det["Mp"].astype(float), exo_data_det["Mp"].astype(float), results_path,
                                 "Distribution Planet Mass Detected Planets",
-                                "Planet Mass [M_E]", xlim=[0, 100], detected=True)
+                                r'Planet Mass [M_{\oplus}]', xlim=[0, 100], detected=True)
     histogram_distribution_plot(np.log10(life_data_det["Mp"].astype(float)), np.log10(exo_data_det["Mp"].astype(float)),
                                 results_path,
                                 "log Distribution Planet Mass Detected Planets",
-                                "log Planet Mass [M_E]", xlim=[-1, 3.5], detected=True)
+                                r'$log_{10}\ M/M_{\oplus}$', xlim=[-1, 3.5], detected=True)
 
     # Planet orbital distance
     histogram_distribution_plot(life_data_det["rp"].astype(float), exo_data_det["distance_p"].astype(float),
-                                results_path,
-                                "Distribution Orbital Distance Detected Planets",
-                                "Planet Distance [AU]",
-                                xlim=[0, 50], detected=True)
+                                results_path, "Distribution Orbital Distance Detected Planets",
+                                "Orbital Distance [AU]", xlim=[0, 50], detected=True)
     histogram_distribution_plot(np.log10(life_data_det["rp"].astype(float)),
                                 np.log10(exo_data_det["distance_p"].astype(float)), results_path,
                                 "log Distribution Orbital Distance Detected Planets",
-                                "log Planet Distance [AU]",
-                                xlim=[-2.0, 2.0], detected=True)
-    # Also scaled by stellar luminosity
-    # TODO: Divide by stellar Luminosity
-    histogram_distribution_plot(life_data_det["rp"].astype(float), exo_data_det["distance_p"].astype(float),
-                                results_path,
-                                "Distribution Orbital Distance scaled Detected Planets",
-                                "Planet Distance [AU] / sqrt(L)",
-                                xlim=[0, 50], detected=True)
-    histogram_distribution_plot(np.log10(life_data_det["rp"].astype(float)),
-                                np.log10(exo_data_det["distance_p"].astype(float)), results_path,
-                                "log Distribution Orbital Distance scaled Detected Planets",
-                                "log Planet Distance [AU] / sqrt(L)",
-                                xlim=[-2.0, 2.0], detected=True)
+                                r'$log_{10}\ d_{orbit}[AU]$', xlim=[-2.0, 2.0], detected=True)
+
+    # Also scaled by stellar luminosity HZ Values are for solar like star (according to Hz deifnition in LIFEsim) and
+    # values will naturally be scaled to that in the histogram
+    hz_in = 0.75
+    hz_out = 1.77
+    histogram_distribution_plot((life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])).astype(float),
+                                (exo_data_det["distance_p"] / np.sqrt(exo_data_det["L_star"])).astype(float),
+                                results_path, "Distribution Orbital Distance scaled Detected Planets",
+                                r'd_{orbit} [AU] / \sqrt(L)', xlim=[0, 50], detected=True,
+                                draw_HZ=True, HZ_inner=hz_in, HZ_outer=hz_out)
+    histogram_distribution_plot(np.log10((life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])).astype(float)),
+                                np.log10((exo_data_det["distance_p"] / np.sqrt(exo_data_det["L_star"])).astype(float)),
+                                results_path, "log Distribution Orbital Distance scaled Detected Planets",
+                                r'$log_{10}\ (d_{orbit}[AU]$ / sqrt(L_{star}))', xlim=[-2.0, 2.0], detected=True,
+                                draw_HZ=True, HZ_inner=np.log10(hz_in), HZ_outer=np.log10(hz_out))
 
     # System Distance
     histogram_distribution_plot(life_data_det["distance_s"].astype(float), exo_data_det["distance_s"].astype(float),
@@ -1092,7 +1134,7 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     histogram_distribution_plot(np.log10(life_data_det["distance_s"].astype(float)),
                                 np.log10(exo_data_det["distance_s"].astype(float)), results_path,
                                 "log Distribution System Distance Detected Planets",
-                                "System Distance log [pc]", xlim=[0, 1.5], detected=True)
+                                r'$log_{10}\ d_{system}[pc]$', xlim=[0, 1.5], detected=True)
 
     ############################
     # Virtual Population Plots #
@@ -1101,44 +1143,45 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     # Rp vs Mp
     kde_distribution_plot(life_data["radius_p"].astype(float), life_data["Mp"].astype(float), results_path,
                           " Sample Population Rp-Mp",
-                          "Exoplanet Radius [R_E]", "Exoplanet Mass [M_E]",
+                          r'Planet Radius [R_{\oplus}]', r'Planet Mass [M_{\oplus}]',
                           xlim=[0, 15], ylim=[0, 200], detected=False)
     kde_distribution_plot(np.log10(life_data["radius_p"].astype(float)), np.log10(life_data["Mp"].astype(float)),
                           results_path,
                           " Sample Population Rp-Mp log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 Exoplanet Mass [M_E]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ M/M_{\oplus}$',
                           xlim=[-0.25, 1.25], ylim=[-1, 2.5], detected=False)
     # Rp vs d_orbit
     kde_distribution_plot(life_data["radius_p"].astype(float), life_data["rp"].astype(float), results_path,
                           " Sample Population Rp-Orbit",
-                          "Exoplanet Radius [R_E]", "Exoplanet Orbit Distance [AU]",
+                          r'Planet Radius [R_{\oplus}]', "Orbital Distance [AU]",
                           xlim=[0, 15], ylim=[0, 50], detected=False)
     kde_distribution_plot(np.log10(life_data["radius_p"].astype(float)), np.log10(life_data["rp"].astype(float)),
                           results_path,
                           " Sample Population Rp-Orbit log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 Exoplanet Orbit Distance [AU]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{orbit}[AU]]$',
                           xlim=[0, 15], ylim=[-2, 2], detected=False)
 
     # Rp vs d_system
     kde_distribution_plot(life_data["radius_p"].astype(float), life_data["distance_s"].astype(float), results_path,
                           " Sample Population Rp-d_s",
-                          "Exoplanet Radius [R_E]", "System Distance [pc]",
+                          r'Planet Radius [R_{\oplus}]', "System Distance [pc]",
                           xlim=[0, 15], ylim=[0, 30], detected=False)
     kde_distribution_plot(np.log10(life_data["radius_p"].astype(float)),
                           np.log10(life_data["distance_s"].astype(float)),
                           results_path, " Sample Population Rp-d_s log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 System Distance [pc]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{system}[pc]$',
                           xlim=[-0.25, 1.25], ylim=[0, 1.5], detected=False)
 
     # d_orbit vs d_system
     kde_distribution_plot(life_data["rp"].astype(float), life_data["distance_s"].astype(float), results_path,
                           " Sample Population d_orbit-d_s",
-                          "Exoplanet Orbit Distance [AU]", "System Distance [pc]",
+                          "Orbital Distance [AU]", "System Distance [pc]",
                           xlim=[0, 50], ylim=[0, 30], detected=False)
     kde_distribution_plot(np.log10(life_data["rp"].astype(float)), np.log10(life_data["distance_s"].astype(float)),
                           results_path, " Sample Population d_orbit-d_s log-log",
-                          "log_10 Exoplanet Orbit Distance [AU]", "log_10 System Distance [pc]",
+                          r'$log_{10}\ d_{orbit}[AU]]$', r'$log_{10}\ d_{system}[pc]$',
                           xlim=[-2, 2], ylim=[0, 1.5], detected=False)
+
 
     ##############################
     # Detected Population Plots ##
@@ -1148,11 +1191,11 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     ##########################
     kde_distribution_plot(exo_data_det["radius_p"].astype(float), exo_data_det["Mp"].astype(float), results_path,
                           " Exosims Detected Rp-Mp",
-                          "Exoplanet Radius [R_E]", "Exoplanet Mass [M_E]",
+                          r'Planet Radius [R_{\oplus}]', r'Planet Mass [M_{\oplus}]',
                           xlim=[0, 15], ylim=[0, 200], detected=True)
     kde_distribution_plot(life_data_det["radius_p"].astype(float), life_data_det["Mp"].astype(float), results_path,
                           " LIFEsim Detected Rp-Mp",
-                          "Exoplanet Radius [R_E]", "Exoplanet Mass [M_E]",
+                          r'Planet Radius [R_{\oplus}]', r'Planet Mass [M_{\oplus}]',
                           xlim=[0, 15], ylim=[0, 200], detected=True)
 
     # log-log
@@ -1160,12 +1203,12 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     # TODO only when running on bluesky. When running locally this bug does not appear
     kde_distribution_plot(np.log10(exo_data_det["radius_p"].astype(float)), np.log10(exo_data_det["Mp"].astype(float)),
                           results_path, " Exosims Detected Rp-Mp log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 Exoplanet Mass [M_E]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ M/M_{\oplus}$',
                           xlim=[-0.25, 1.25], ylim=[-1, 2.5], detected=True)
     kde_distribution_plot(np.log10(life_data_det["radius_p"].astype(float)),
                           np.log10(life_data_det["Mp"].astype(float)),
                           results_path, " LIFEsim Detected Rp-Mp log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 Exoplanet Mass [M_E]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ M/M_{\oplus}$',
                           xlim=[-0.25, 1.25], ylim=[-1, 2.5], detected=True)
 
     # Distribution Plots Rp d_orbit
@@ -1174,23 +1217,23 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     kde_distribution_plot(exo_data_det["radius_p"].astype(float), exo_data_det["distance_p"].astype(float),
                           results_path,
                           " Exosims Detected Rp-Orbit",
-                          "Exoplanet Radius [R_E]", "Exoplanet Orbit Distance [AU]",
+                          r'Planet Radius [R_{\oplus}]', "Orbital Distance [AU]",
                           xlim=[0, 15], ylim=[0, 200], detected=True)
     kde_distribution_plot(life_data_det["radius_p"].astype(float), life_data_det["rp"].astype(float), results_path,
                           " LIFEsim Detected Rp-Orbit",
-                          "Exoplanet Radius [R_E]", "Exoplanet Orbit Distance [AU]",
+                          r'Planet Radius [R_{\oplus}]', "Orbital Distance [AU]",
                           xlim=[0, 15], ylim=[0, 200], detected=True)
 
     # log-log
     kde_distribution_plot(np.log10(exo_data_det["radius_p"].astype(float)),
                           np.log10(exo_data_det["distance_p"].astype(float)),
                           results_path, " Exosims Detected Rp-Orbit log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 Exoplanet Orbit Distance [AU]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{orbit}[AU]]$',
                           xlim=[-0.25, 1.25], ylim=[-2, 2], detected=True)
     kde_distribution_plot(np.log10(life_data_det["radius_p"].astype(float)),
                           np.log10(life_data_det["rp"].astype(float)),
                           results_path, " LIFEsim Detected Rp-Orbit log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 Exoplanet Orbit Distance [AU]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{orbit}[AU]]$',
                           xlim=[-0.25, 1.25], ylim=[-2, 2], detected=True)
 
     # Distribution Plots Rp d_system
@@ -1199,24 +1242,24 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     kde_distribution_plot(exo_data_det["radius_p"].astype(float), exo_data_det["distance_s"].astype(float),
                           results_path,
                           " Exosims Detected Rp-d_s",
-                          "Exoplanet Radius [R_E]", "System Distance [pc]",
+                          r'Planet Radius [R_{\oplus}]', "System Distance [pc]",
                           xlim=[0, 15], ylim=[0, 30], detected=True)
     kde_distribution_plot(life_data_det["radius_p"].astype(float), life_data_det["distance_s"].astype(float),
                           results_path,
                           " LIFEsim Detected Rp-d_s",
-                          "Exoplanet Radius [R_E]", "System Distance [pc]",
+                          r'Planet Radius [R_{\oplus}]', "System Distance [pc]",
                           xlim=[0, 15], ylim=[0, 30], detected=True)
 
     # log-log
     kde_distribution_plot(np.log10(exo_data_det["radius_p"].astype(float)),
                           np.log10(exo_data_det["distance_s"].astype(float)),
                           results_path, " Exosims Detected Rp-d_s log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 System Distance [pc]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{system}[pc]$',
                           xlim=[-0.25, 1.25], ylim=[0, 1.5], detected=True)
     kde_distribution_plot(np.log10(life_data_det["radius_p"].astype(float)),
                           np.log10(life_data_det["distance_s"].astype(float)),
                           results_path, " LIFEsim Detected Rp-d_s log-log",
-                          "log_10 Exoplanet Radius [R_E]", "log_10 System Distance [pc]",
+                          r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{system}[pc]$',
                           xlim=[-0.25, 1.25], ylim=[0, 1.5], detected=True)
 
     # d_orbit vs d_system
@@ -1224,24 +1267,202 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     kde_distribution_plot(exo_data_det["distance_p"].astype(float), exo_data_det["distance_s"].astype(float),
                           results_path,
                           " EXOsim Detected d_orbit-d_s",
-                          "Exoplanet Orbit Distance [AU]", "System Distance [pc]",
+                          "Orbital Distance [AU]", "System Distance [pc]",
                           xlim=[0, 200], ylim=[0, 30], detected=True)
     kde_distribution_plot(life_data_det["rp"].astype(float), life_data_det["distance_s"].astype(float), results_path,
                           " LIFEsim Detected d_orbit-d_s",
-                          "Exoplanet Orbit Distance [AU]", "System Distance [pc]",
+                          "Orbital Distance [AU]", "System Distance [pc]",
                           xlim=[0, 200], ylim=[0, 30], detected=True)
 
     # log-log
     kde_distribution_plot(np.log10(exo_data_det["distance_p"].astype(float)),
                           np.log10(exo_data_det["distance_s"].astype(float)),
                           results_path, " EXOsim Detected d_orbit-d_s log-log",
-                          "log_10 Exoplanet Orbit Distance [AU]", "log_10 System Distance [pc]",
+                          r'$log_{10}\ d_{orbit}[AU]]$', r'$log_{10}\ d_{system}[pc]$',
                           xlim=[-2, 2], ylim=[0, 1.5], detected=True)
     kde_distribution_plot(np.log10(life_data_det["rp"].astype(float)),
                           np.log10(life_data_det["distance_s"].astype(float)),
                           results_path, " LIFEsim Detected d_orbit-d_s log-log",
-                          "log_10 Exoplanet Orbit Distance [AU]", "log_10 System Distance [pc]",
+                          r'$log_{10}\ d_{orbit}[AU]]$', r'$log_{10}\ d_{system}[pc]$',
                           xlim=[-2, 2], ylim=[0, 1.5], detected=True)
+
+    return None
+
+
+def radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path):
+    """
+    Check the radius and mass parameter space with the tool of Chen and Kipping "forecaster"
+    https://github.com/chenjj2/forecaster
+    :param life_data: all LIFEsim data
+    :param exo_data: all EXOSIMS data
+    :param life_data_det: all LIFEsim detected data
+    :param exo_data_det: all EXOSIMS detected data
+    :param results_path: results path
+    :return: parameters space plots of Radius and Mass
+    """
+
+
+    xlim = [-1,3]
+    # Check if "Radius_Mass_Doublecheck" directory exists in results_path
+    radius_mass_dir = results_path.joinpath("Radius_Mass_Doublecheck")
+
+    if not os.path.exists(radius_mass_dir):
+        # Create the "Radius_Mass_Doublecheck" directory if it doesn't exist
+        os.makedirs(radius_mass_dir)
+
+    # Update results_path to point to the "Radius_Mass_Doublecheck" directory
+    results_path = radius_mass_dir
+    #############################
+    # All Underlying Data
+    #############################
+    # Save to demo_mass.dat and demo_radius.dat
+    current_location = Path(__file__).parent.resolve()
+    mass_path = current_location.joinpath("forecaster/demo_mass.dat")
+    radius_path = current_location.joinpath("forecaster/demo_radius.dat")
+    life_data["Mp"].to_csv(mass_path, sep="\t", index=False, header=False)
+    life_data["radius_p"].to_csv(radius_path, sep="\t", index=False, header=False)
+
+    # Rmedian, Rplus, Rminus = mr.Mstat2R(mean=1.0, std=0.1, unit='Earth', sample_size=100, classify='Yes')
+    # print('Sample Population R = %.2f (+ %.2f - %.2f) REarth' % (Rmedian, Rplus, Rminus))
+
+    M1 = np.loadtxt(mass_path)
+    R1 = mr.Mpost2R(M1, unit='Earth', classify='Yes')
+    plt.hist(np.log10(R1), bins=25)
+    plt.xlabel(r'$log_{10}\ R/R_{\oplus}$')
+    title = 'Sample Population Radius from Mass'
+    plt.title(title)
+    plt.savefig(results_path.joinpath(title + ".svg"))
+    plt.close()
+
+    # Mmedian, Mplus, Mminus = mr.Rstat2M(mean=0.1, std=0.01, unit='Earth', sample_size=100, grid_size=1e3, classify='Yes')
+    # print('Sample Population M = %.3f (+ %.3f - %.3f) MEarth' % (Mmedian, Mplus, Mminus))
+
+    R2 = np.loadtxt(radius_path)
+    M2 = mr.Rpost2M(R2, unit='Earth', grid_size=int(1000), classify='Yes')
+    plt.hist(np.log10(M2), bins=25)
+    plt.xlabel(r'$log_{10}\ M/M_{\odot}$')
+    title = 'Sample Population Mass from Radius'
+    plt.title(title)
+    plt.savefig(results_path.joinpath(title + ".svg"))
+    plt.close()
+
+    #############################
+    # LIFE Detections
+    #############################
+    # Save to demo_mass.dat and demo_radius.dat
+    current_location = Path(__file__).parent.resolve()
+    mass_path = current_location.joinpath("forecaster/demo_mass.dat")
+    radius_path = current_location.joinpath("forecaster/demo_radius.dat")
+    life_data_det["Mp"].to_csv(mass_path, sep="\t", index=False, header=False)
+    life_data_det["radius_p"].to_csv(radius_path, sep="\t", index=False, header=False)
+
+    # Rmedian, Rplus, Rminus = mr.Mstat2R(mean=1.0, std=0.1, unit='Earth', sample_size=100, classify='Yes')
+    # print('Sample Population R = %.2f (+ %.2f - %.2f) REarth' % (Rmedian, Rplus, Rminus))
+
+    M1 = np.loadtxt(mass_path)
+    R1 = mr.Mpost2R(M1, unit='Earth', classify='Yes')
+    plt.xlim(left=xlim[0], right=xlim[1])
+    plt.hist(np.log10(R1), bins=25, color='green')
+    plt.xlabel(r'$log_{10}\ R/R_{\oplus}$')
+    title = 'LIFEsim Detections Radius from Mass'
+    plt.title(title)
+    plt.savefig(results_path.joinpath(title + ".svg"))
+    plt.close()
+
+    # Mmedian, Mplus, Mminus = mr.Rstat2M(mean=0.1, std=0.01, unit='Earth', sample_size=100, grid_size=1e3, classify='Yes')
+    # print('Sample Population M = %.3f (+ %.3f - %.3f) MEarth' % (Mmedian, Mplus, Mminus))
+
+    R2 = np.loadtxt(radius_path)
+    M2 = mr.Rpost2M(R2, unit='Earth', grid_size=int(1000), classify='Yes')
+    plt.hist(np.log10(M2), bins=25, color='green')
+    plt.xlabel(r'$log_{10}\ M/M_{\odot}$')
+    title = 'LIFEsim Detections Mass from Radius'
+    plt.title(title)
+    plt.savefig(results_path.joinpath(title + ".svg"))
+    plt.close()
+
+    #############################
+    # EXOsims Detections
+    #############################
+    # Save to demo_mass.dat and demo_radius.dat
+    current_location = Path(__file__).parent.resolve()
+    mass_path = current_location.joinpath("forecaster/demo_mass.dat")
+    radius_path = current_location.joinpath("forecaster/demo_radius.dat")
+    exo_data_det["Mp"].to_csv(mass_path, sep="\t", index=False, header=False)
+    exo_data_det["radius_p"].to_csv(radius_path, sep="\t", index=False, header=False)
+
+    # Rmedian, Rplus, Rminus = mr.Mstat2R(mean=1.0, std=0.1, unit='Earth', sample_size=100, classify='Yes')
+    # print('Sample Population R = %.2f (+ %.2f - %.2f) REarth' % (Rmedian, Rplus, Rminus))
+
+    M1 = np.loadtxt(mass_path)
+    R1 = mr.Mpost2R(M1, unit='Earth', classify='Yes')
+    plt.xlim(left=xlim[0], right=xlim[1])
+    plt.hist(np.log10(R1), bins=25, color='blue')
+    plt.xlabel(r'$log_{10}\ R/R_{\oplus}$')
+    title = 'EXOsim Detections Radius from Mass'
+    plt.title(title)
+    plt.savefig(results_path.joinpath(title + ".svg"))
+    plt.close()
+
+    # Mmedian, Mplus, Mminus = mr.Rstat2M(mean=0.1, std=0.01, unit='Earth', sample_size=100, grid_size=1e3, classify='Yes')
+    # print('Sample Population M = %.3f (+ %.3f - %.3f) MEarth' % (Mmedian, Mplus, Mminus))
+
+    R2 = np.loadtxt(radius_path)
+    M2 = mr.Rpost2M(R2, unit='Earth', grid_size=int(1000), classify='Yes')
+    plt.hist(np.log10(M2), bins=25, color='blue')
+    plt.xlabel(r'$log_{10}\ M/M_{\odot}$')
+    title = 'EXOsim Detections Mass from Radius'
+    plt.title(title)
+    plt.savefig(results_path.joinpath(title + ".svg"))
+    plt.close()
+
+    return None
+
+
+def bin_parameter_space(data, x_param, y_param, n_bins):
+    """
+    This function, given the dataframe 'data' and the names of the two parameters, splits the data
+    accordingly into n_bins^2 bins in the 2-D parameter space. This acts as a first step towards the
+    calculation of the discrete Depth of Search.
+    :param data: dataframe containing the data, either in form of the LIFEsim output Dataframe or the
+    Exosims output Dataframe
+    :param x_param: String with the name of the parameter in the x-axis. Name must match the naming in
+    the dataframe 'data'.
+    :param y_param: String with the name of the parameter in the y-axis. Name must match the naming in
+    the dataframe 'data'.
+    :param n_bins: Number of bins per axis. Total number of bins will be n_bins^2. Calculation time therefore
+    scales O(n_bins^2), but at the same time, higher amount of bins allows for a smoother DoS distribution.
+    :return: 2-D array of bins, each containing the indices of the data points that fall into that bin.
+    """
+
+    return 2d_param_bins
+
+def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path):
+    """
+    This function summarizes all the analysis, calculations and plot generation with respect to the Depth of Search
+    Metric. This includes (currently):
+    - Splitting the underlying Sample Population of the virtual Universes into bins in different 2-D parameter spaces
+    - Splitting the observed Population into bins the same bins
+    - Splitting the detected Population into bins the same bins
+    - Calculating the Depth of Search for each bin
+    - (Not yet known if necessary) Some re-normalization along the way
+    - Plotting the Depth of Search for each bin
+    - Plotting the Depth of Search as a continuous distribution / heatmap
+    :return:
+    - Discrete Depth of Search Plots
+    - Continuous Depth of Search Plots
+    """
+    # Check if "Depth of Search" directory exists in results_path
+    dos_dir = results_path.joinpath("Deapth_of_Search")
+
+    sample_pop_bins = bin_parameter_space(life_data, 'Rp', 'distance_p', n_bins=100)
+
+    if not os.path.exists(dos_dir):
+        # Create the "Radius_Mass_Doublecheck" directory if it doesn't exist
+        os.makedirs(dos_dir)
+
+
+
 
     return None
 
@@ -1268,6 +1489,9 @@ exo_data_det_EE = exo_data_det[mask_exo_EE]
 
 # Plotting
 plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
+
+# Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
+radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
 """
 # KDI only Earth Like planets detected
