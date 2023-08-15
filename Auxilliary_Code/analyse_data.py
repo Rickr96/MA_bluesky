@@ -1182,7 +1182,6 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
                           r'$log_{10}\ d_{orbit}[AU]]$', r'$log_{10}\ d_{system}[pc]$',
                           xlim=[-2, 2], ylim=[0, 1.5], detected=False)
 
-
     ##############################
     # Detected Population Plots ##
     ##############################
@@ -1301,8 +1300,7 @@ def radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_
     :return: parameters space plots of Radius and Mass
     """
 
-
-    xlim = [-1,3]
+    xlim = [-1, 3]
     # Check if "Radius_Mass_Doublecheck" directory exists in results_path
     radius_mass_dir = results_path.joinpath("Radius_Mass_Doublecheck")
 
@@ -1419,7 +1417,7 @@ def radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_
     return None
 
 
-def bin_parameter_space(data, x_param, y_param, n_bins):
+def bin_parameter_space(data, x_param, xlim, y_param, ylim, n_bins):
     """
     This function, given the dataframe 'data' and the names of the two parameters, splits the data
     accordingly into n_bins^2 bins in the 2-D parameter space. This acts as a first step towards the
@@ -1428,14 +1426,67 @@ def bin_parameter_space(data, x_param, y_param, n_bins):
     Exosims output Dataframe
     :param x_param: String with the name of the parameter in the x-axis. Name must match the naming in
     the dataframe 'data'.
+    :param xlim: List with the lower and upper limit of the x-axis [x_min, x_max]
     :param y_param: String with the name of the parameter in the y-axis. Name must match the naming in
     the dataframe 'data'.
+    :param ylim: List with the lower and upper limit of the y-axis [y_min, y_max]
     :param n_bins: Number of bins per axis. Total number of bins will be n_bins^2. Calculation time therefore
     scales O(n_bins^2), but at the same time, higher amount of bins allows for a smoother DoS distribution.
-    :return: 2-D array of bins, each containing the indices of the data points that fall into that bin.
+    :return: Normalized probability of occurance in the 2-D parameter space of the dataframe 'data'
     """
+    t1 = time.time()
+    N_tot = len(data)
+    twod_param_p, twod_paramspace = np.zeros((n_bins, n_bins)), np.zeros((n_bins, n_bins, 2))
+    mask = (data[x_param] > xlim[0]) & (data[x_param] < xlim[1]) & (data[y_param] > ylim[0]) & (data[y_param] < ylim[1])
+    data_masked = data[mask]
+    x_data, y_data = data_masked[x_param], data_masked[y_param]
+    x_linspace, y_linspace = np.linspace(xlim[0], xlim[1], n_bins), np.linspace(ylim[0], ylim[1], n_bins)
+    for i in range(n_bins):
+        for j in range(n_bins):
+            # print("Starting round (", i, j, ")")
+            try:
+                mask_ij = (x_data > x_linspace[i]) & (x_data < x_linspace[i + 1]) & (y_data > y_linspace[j]) & (
+                        y_data < y_linspace[j + 1])
+            except IndexError:
+                mask_ij = (x_data > x_linspace[i]) & (y_data > y_linspace[j])
+            N_ij = np.sum(mask_ij)
+            twod_param_p[i, j] = N_ij / N_tot
+            twod_paramspace[i, j] = [x_linspace[i], y_linspace[j]]
 
-    return 2d_param_bins
+    t2 = time.time()
+    print("Time to bin parameter space for", x_param, y_param, ": ", t2 - t1)
+
+    return twod_param_p, twod_paramspace
+
+
+def plot_heatmap(data, paramspace, x_param, xlim, y_param, ylim, results_path, title, n_bins):
+    # Create a heatmap
+    plt.figure(figsize=(10, 8))  # Adjust the figure size as needed
+
+    # Choose a colormap for color coding (e.g., 'viridis', 'plasma', 'magma', 'inferno', etc.)
+    # More colormaps: https://matplotlib.org/stable/tutorials/colors/colormaps.html
+    cmap = 'viridis'
+
+    # Create the heatmap
+    # For some reason it was flipped, by transposing you can fix it
+    heatmap = plt.imshow(data.T, cmap=cmap, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect='auto')
+
+    # Add a colorbar
+    cbar = plt.colorbar(heatmap)
+    cbar.set_label('Depth of Search', rotation=270, labelpad=15)
+
+    # Set axis labels if needed
+    plt.xlabel(x_param)
+    plt.ylabel(y_param)
+
+    # Add title
+    plt.title(title)
+    plt.savefig(results_path.joinpath(title + ".svg"))
+    # Show the plot
+    plt.show()
+
+    return None
+
 
 def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path):
     """
@@ -1453,16 +1504,44 @@ def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path)
     - Continuous Depth of Search Plots
     """
     # Check if "Depth of Search" directory exists in results_path
-    dos_dir = results_path.joinpath("Deapth_of_Search")
-
-    sample_pop_bins = bin_parameter_space(life_data, 'Rp', 'distance_p', n_bins=100)
-
+    dos_dir = results_path.joinpath("Depth_of_Search")
     if not os.path.exists(dos_dir):
-        # Create the "Radius_Mass_Doublecheck" directory if it doesn't exist
+        # Create the "Depth_of_Search" directory if it doesn't exist
         os.makedirs(dos_dir)
 
+    ##################################################
+    # START OF THE DISCRETE DEPTH OF SEARCH ANALYSIS #
+    ##################################################
+    N_bin = 10
+    N_bin += 1
+    xlim = [0, 15]
+    ylim = [0, 100]
+    sample_pop_bins, sample_paramspace = bin_parameter_space(life_data, 'radius_p', xlim, 'rp', ylim,
+                                                             n_bins=N_bin)
+    life_det_bins, life_paramspace = bin_parameter_space(life_data_det, 'radius_p', xlim, 'rp', ylim,
+                                                         n_bins=N_bin)
+    exo_det_bins, exo_paramspace = bin_parameter_space(exo_data_det, 'radius_p', xlim, 'distance_p', ylim,
+                                                       n_bins=N_bin)
+    print("Sample Population Bins: ", sample_pop_bins)
+    print("Life Detected Bins: ", life_det_bins)
 
+    dos_life = life_det_bins / sample_pop_bins
+    print("DoS Life: ", dos_life)
+    dos_exo = exo_det_bins / sample_pop_bins
+    plot_heatmap(sample_pop_bins, life_paramspace, 'Planet Radius [R_E]', xlim, 'Planet Distance[AU]', ylim,
+                 dos_dir, "prob_sample", N_bin)
+    plot_heatmap(life_det_bins, life_paramspace, 'Planet Radius [R_E]', xlim, 'Planet Distance[AU]', ylim,
+                 dos_dir, "prob_life", N_bin)
+    plot_heatmap(dos_life, life_paramspace, 'Planet Radius [R_E]', xlim, 'Planet Distance[AU]', ylim,
+                 dos_dir, "dos_life", N_bin)
+    plot_heatmap(exo_det_bins, life_paramspace, 'Planet Radius [R_E]', xlim, 'Planet Distance[AU]', ylim,
+                 dos_dir, "prob_exo", N_bin)
+    plot_heatmap(dos_exo, exo_paramspace, 'Planet Radius [R_E]', xlim, 'Planet Distance[AU]', ylim,
+                 dos_dir, "dos_exo", N_bin)
 
+    ####################################################
+    # START OF THE CONTINUOUS DEPTH OF SEARCH ANALYSIS #
+    ####################################################
 
     return None
 
@@ -1488,10 +1567,13 @@ life_data_det_EE = life_data_det[mask_life_EE]
 exo_data_det_EE = exo_data_det[mask_exo_EE]
 
 # Plotting
-plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
+# plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
 # Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
-radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
+# radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
+
+# Depth of Search Analysis
+dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
 """
 # KDI only Earth Like planets detected
