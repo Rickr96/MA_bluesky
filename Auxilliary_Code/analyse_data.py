@@ -1489,6 +1489,9 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, results_path, title):
 
     Returns: None
     """
+    # Fill NaN values with 0
+    data = np.nan_to_num(data)
+
     # Create a heatmap
     plt.figure(figsize=(10, 8))  # Adjust the figure size as needed
 
@@ -1518,7 +1521,7 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, results_path, title):
     return None
 
 
-def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path):
+def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path, N_bin=25):
     """
     This function summarizes all the analysis, calculations and plot generation with respect to the Depth of Search
     Metric. This includes (currently):
@@ -1542,7 +1545,6 @@ def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path)
     ##################################################
     # START OF THE DISCRETE DEPTH OF SEARCH ANALYSIS #
     ##################################################
-    N_bin = 10
     N_bin += 1
     xlim = Rp_lim
     ylim = d_orbit_lim
@@ -1591,7 +1593,7 @@ current_dir = Path(__file__).parent.resolve()
 results_path = current_dir.parent.resolve().joinpath("Results/")
 
 # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
-# run_it_and_save_it(results_path)
+run_it_and_save_it(results_path)
 
 
 """
