@@ -623,7 +623,7 @@ def import_data(exo_outpath,life_outpath, life_file_name, star_cat_path):
     return life_data_d, df_exo
 
 
-def run_life(pythonpath, script_path):
+def run_life(pythonpath, script_path, ppop_path):
     """
     This function runs LIFEsim with the ExoSim Data as input
 
@@ -631,7 +631,7 @@ def run_life(pythonpath, script_path):
     """
 
     # Run LIFEsim with that Data
-    command = f"python {script_path}"
+    command = f"python {script_path} {ppop_path}"
     env = os.environ.copy()
     env['PYTHONPATH'] = pythonpath
     subprocess.run(command, shell=True, env=env)
@@ -639,7 +639,7 @@ def run_life(pythonpath, script_path):
     return None
 
 
-def __main__():
+def __main__(ppop_path):
     # Paths
     current_dir = Path(__file__).parent.resolve()
     exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS/")
@@ -653,4 +653,5 @@ def __main__():
     exo_trans.to_hdf(exosim_cat_path, key='catalog')
 
     run_life(pythonpath=str(lifesim_path),
-             script_path=current_dir.joinpath("LIFEsim_ExoSim_Inputs.py"))
+             script_path=current_dir.joinpath("LIFEsim_ExoSim_Inputs.py"),
+             ppop_path=ppop_path)

@@ -12,7 +12,9 @@ import lifesim
 if __name__ == '__main__':
 
     # ---------- Set-Up ----------
-
+    ppop_path = sys.argv[1]
+    print(sys.argv)
+    print(ppop_path)
     # create bus
     bus = lifesim.Bus()
 
@@ -20,8 +22,10 @@ if __name__ == '__main__':
     bus.data.options.set_scenario('baseline')
 
     # ---------- Loading the Catalog ----------
-    ppop_path = life_dir.joinpath('exosim_cat/exosim_univ.hdf5')
     bus.data.catalog_from_ppop(input_path=str(ppop_path))
+
+    sys.exit()
+
     # bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)  # remove all A stars
     # bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)  # remove M stars > 10pc to
     # speed up calculation

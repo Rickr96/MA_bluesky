@@ -1015,11 +1015,11 @@ def kde_distribution_plot(data_d1, data_d2, result_path, name, xlabel, ylabel, x
     return 0
 
 
-def run_it_and_save_it(results_path):
+def run_it_and_save_it(results_path, ppop_path):
     # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
     rexo.__main__()
     # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
-    gd.__main__()
+    gd.__main__(ppop_path=ppop_path)
 
     current_dir = Path(__file__).parent.resolve()
     exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
@@ -1583,6 +1583,9 @@ def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path,
     # START OF THE CONTINUOUS DEPTH OF SEARCH ANALYSIS #
     ####################################################
 
+
+
+
     return None
 
 
@@ -1590,10 +1593,12 @@ def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path,
 Pre-Amble Starts here with defining paths, and running the two Sims via "run_it_and_save_it"
 """
 current_dir = Path(__file__).parent.resolve()
+parent_dir = current_dir.parent.resolve()
 results_path = current_dir.parent.resolve().joinpath("Results/")
+ppop_path = parent_dir.joinpath('LIFEsim-Rick_Branch/exosim_cat/exosim_univ.hdf5')
 
 # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
-run_it_and_save_it(results_path)
+run_it_and_save_it(results_path, ppop_path=ppop_path)
 
 
 """
@@ -1642,6 +1647,6 @@ plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
 # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
 # Depth of Search Analysis
-dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path)
+dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path, N_bin=100)
 
 print("Analyse Data Finished!")
