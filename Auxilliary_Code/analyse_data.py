@@ -335,52 +335,6 @@ def stype_translator(stype: str):
     return stype_val
 
 
-def Rp_Mp_scatter(Rp_det, Mp_det, Rp, Mp, name, title, resultpath):
-    """
-    :param Rp_det: List planetary radii of detected planets
-    :param Mp_det: List planetary mass of detected planets
-    :param Rp: List planetary radii of all planets
-    :param Mp: List planetary mass of all planets
-    :return: Scatter plot with detected planets in blue and all planets in red
-    """
-    plt.figure(figsize=(8, 6))
-    plt.title(title)
-    plt.xlabel('Planet Radius (Earth radii)')
-    plt.ylabel('Planet Mass (Earth masses)')
-    # plt.xlim(0, 15)
-    plt.ylim(0, 500)
-    plt.scatter(Rp, Mp, c='grey', alpha=0.5, label='Undetected')
-    plt.scatter(Rp_det, Mp_det, c='green', alpha=0.8, label='Detected')
-    plt.legend()
-    plt.savefig(resultpath + name + ".png")
-    plt.clf()
-
-    return 0
-
-
-def Rp_d_scatter(Rp_det, d_det, Rp, d, name, title, resultpath):
-    """
-    :param Rp_det: List planetary radii of detected planets
-    :param Mp_det: List planetary mass of detected planets
-    :param Rp: List planetary radii of all planets
-    :param p: List planetary period of all planets
-    :return: Scatter plot with detected planets in blue and all planets in red
-    """
-    plt.figure(figsize=(8, 6))
-    plt.title(title)
-    plt.xlabel('Planet Radius (Earth radii)')
-    plt.ylabel('Planet distance (AU)')
-    # plt.xlim(0, 15)
-    plt.ylim(0, 50)
-    plt.scatter(Rp, d, c='grey', alpha=0.5, label='Undetected')
-    plt.scatter(Rp_det, d_det, c='green', alpha=0.8, label='Detected')
-    plt.legend()
-    plt.savefig(resultpath + name + ".png")
-    plt.clf()
-
-    return 0
-
-
 def add_ptype_to_df(df, ptypes):
     """
     Adds a column with the planet type to the dataframe
@@ -1564,6 +1518,10 @@ def dos_analysis(sample_data, det_data, results_path, indicator, N_bin=25):
         # Create the "Depth_of_Search" directory if it doesn't exist
         os.makedirs(dos_dir)
 
+    # Setup: List of all the parameters, the labels and the limits
+    if indicator == "LIFE":
+        parameters = ["radius_p", "rp", "Mp", "distance_s"]
+
     ##################################################
     # START OF THE DISCRETE DEPTH OF SEARCH ANALYSIS #
     ##################################################
@@ -1659,7 +1617,7 @@ if __name__ == '__main__':
     # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Depth of Search Analysis
-    dos_analysis(life_data, life_data_det, results_path, "LIFE", N_bin=100)
-    dos_analysis(exo_data, exo_data_det, results_path, "HWO", N_bin=100)
+    dos_analysis(life_data, life_data_det, results_path, "LIFEsim", N_bin=25)
+    dos_analysis(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=25)
 
     print("Analyse Data Finished!")
