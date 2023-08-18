@@ -13,7 +13,6 @@ if __name__ == '__main__':
 
     # ---------- Set-Up ----------
     ppop_path = sys.argv[1]
-    print(sys.argv)
     print(ppop_path)
     # create bus
     bus = lifesim.Bus()
@@ -23,8 +22,6 @@ if __name__ == '__main__':
 
     # ---------- Loading the Catalog ----------
     bus.data.catalog_from_ppop(input_path=str(ppop_path))
-
-    sys.exit()
 
     # bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)  # remove all A stars
     # bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)  # remove M stars > 10pc to
@@ -78,6 +75,7 @@ if __name__ == '__main__':
     instrument.get_snr()
 
     opt.ahgs()
-    output_dir = parent_dir.joinpath('Auxilliary_Code/Analysis/Output/LIFEsim/demo1.hdf5')
+    output_dir = sys.argv[2]
+    # output_dir = parent_dir.joinpath('Auxilliary_Code/Analysis/Output/LIFEsim/demo1.hdf5')
     # ---------- Saving the Results ----------
     bus.data.export_catalog(output_path=str(output_dir))

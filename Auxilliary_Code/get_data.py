@@ -623,7 +623,7 @@ def import_data(exo_outpath,life_outpath, life_file_name, star_cat_path):
     return life_data_d, df_exo
 
 
-def run_life(pythonpath, script_path, ppop_path):
+def run_life(pythonpath, script_path, ppop_path, life_results_path):
     """
     This function runs LIFEsim with the ExoSim Data as input
 
@@ -631,7 +631,7 @@ def run_life(pythonpath, script_path, ppop_path):
     """
 
     # Run LIFEsim with that Data
-    command = f"python {script_path} {ppop_path}"
+    command = f"python {script_path} {ppop_path} {life_results_path}"
     env = os.environ.copy()
     env['PYTHONPATH'] = pythonpath
     subprocess.run(command, shell=True, env=env)
@@ -639,7 +639,22 @@ def run_life(pythonpath, script_path, ppop_path):
     return None
 
 
-def __main__(ppop_path):
+def run_life_single(pythonpath, script_path, dos_pop_path, population_files, results_files):
+    """
+    Starts an instance of LIFEsim for each population file given. This is needed for the DoS validation tests
+    :param population_files:
+    :param results_files:
+    :return:
+    """
+    for i in range(len(population_files)):
+        pop_file_path = dos_pop_path.joinpath(population_files[i])
+        results_file_path = dos_pop_path.joinpath(results_files[i])
+        run_life(pythonpath, script_path, pop_file_path, results_file_path)
+
+    return None
+
+
+def __main__(ppop_path, life_results_path):
     # Paths
     current_dir = Path(__file__).parent.resolve()
     exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS/")
@@ -654,4 +669,5 @@ def __main__(ppop_path):
 
     run_life(pythonpath=str(lifesim_path),
              script_path=current_dir.joinpath("LIFEsim_ExoSim_Inputs.py"),
-             ppop_path=ppop_path)
+             ppop_path=ppop_path,
+             life_results_path=life_results_path)

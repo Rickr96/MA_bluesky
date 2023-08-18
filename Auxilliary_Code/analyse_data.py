@@ -22,6 +22,22 @@ import EXOSIMS.MissionSim
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+"""
+Important: All parameter space plots require some limits given. In order to have this the same everywhere and so that we
+only need to change it at one place, all limits are defined here globally. 
+"""
+
+Rp_lim = [0, 20]  # Planet Radius [R_E]
+Rp_lim_log = [0, 1.5]  # Planet Radius [R_E]
+Mp_lim = [0, 10]  # Planet Mass [M_E]
+Mp_lim_log = [-1, 4]  # Planet Mass [M_E]
+d_orbit_lim = [0, 15]  # Orbital Distance [AU]
+d_orbit_lim_log = [-2, 2]  # Orbital Distance [AU]
+d_orbit_scaled_lim = [0, 15]  # Orbital Distance [AU]
+d_orbit_scaled_lim_log = [-2, 2]  # Orbital Distance [AU]
+d_system_lim = [0, 30]  # System Distance [pc]
+d_system_lim_log = [0, 1.5]  # System Distance [pc]
+
 
 def get_whitelist_from_diff(scen1, scen2, parameter: str, gol: str):
     """
@@ -806,8 +822,8 @@ def histogram_distribution_plot(life_data_d, exo_data_d, result_path, name, xlab
 
     # Calculating the location of the mean -- Calculation different for log data as mean(log(x)) != log(mean(x))
     if log:
-        axs[0].axvline(np.log10((10**life_data_d).mean()), color='r', linewidth=1)
-        axs[1].axvline(np.log10((10**exo_data_d).mean()), color='r', linewidth=1)
+        axs[0].axvline(np.log10((10 ** life_data_d).mean()), color='r', linewidth=1)
+        axs[1].axvline(np.log10((10 ** exo_data_d).mean()), color='r', linewidth=1)
     else:
         axs[0].axvline(life_data_d.mean(), color='r', linewidth=1)
         axs[1].axvline(exo_data_d.mean(), color='r', linewidth=1)
@@ -911,7 +927,7 @@ def histogram_single(life_data_d, result_path, name, xlabel, xlim=None, ylim=Non
     plt.ylabel('probability density function', fontsize=10, labelpad=10)
 
     if log:
-        plt.axvline(np.log10((10**life_data_d).mean()), color='r', linewidth=1)
+        plt.axvline(np.log10((10 ** life_data_d).mean()), color='r', linewidth=1)
     else:
         plt.axvline(life_data_d.mean(), color='r', linewidth=1)
 
@@ -1015,11 +1031,11 @@ def kde_distribution_plot(data_d1, data_d2, result_path, name, xlabel, ylabel, x
     return 0
 
 
-def run_it_and_save_it(results_path, ppop_path):
+def run_it_and_save_it(results_path, ppop_path, life_results_path):
     # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
     rexo.__main__()
     # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
-    gd.__main__(ppop_path=ppop_path)
+    gd.__main__(ppop_path=ppop_path, life_results_path=life_results_path)
 
     current_dir = Path(__file__).parent.resolve()
     exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
@@ -1521,7 +1537,7 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, results_path, title):
     return None
 
 
-def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path, N_bin=25):
+def dos_analysis(sample_data, det_data, results_path, indicator, N_bin=25):
     """
     This function summarizes all the analysis, calculations and plot generation with respect to the Depth of Search
     Metric. This includes (currently):
@@ -1532,6 +1548,12 @@ def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path,
     - (Not yet known if necessary) Some re-normalization along the way
     - Plotting the Depth of Search for each bin
     - Plotting the Depth of Search as a continuous distribution / heatmap
+
+    :param sample_data: Dataframe containing the underlying Sample Population of the virtual Universes
+    :param det_data: Dataframe containing the detected Population of the virtual Universes
+    :param results_path: Path where the results will be saved
+    :param indicator: String indicating which simulation is being analysed. Either LIFE or EXO
+    :param N_bin: Number of bins per axis. Total number of bins will be n_bins^2. Calculation time therefore
     :return:
     - Discrete Depth of Search Plots
     - Continuous Depth of Search Plots
@@ -1548,105 +1570,96 @@ def dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path,
     N_bin += 1
     xlim = Rp_lim
     ylim = d_orbit_lim
-    sample_pop_bins, sample_paramspace = bin_parameter_space(life_data, 'radius_p', xlim, 'rp', ylim,
+    sample_pop_bins, sample_paramspace = bin_parameter_space(sample_data, 'radius_p', xlim, 'rp', ylim,
                                                              n_bins=N_bin)
-    life_det_bins, life_paramspace = bin_parameter_space(life_data_det, 'radius_p', xlim, 'rp', ylim,
+    det_bins, det_paramspace = bin_parameter_space(det_data, 'radius_p', xlim, 'rp', ylim,
                                                          n_bins=N_bin)
-    exo_det_bins, exo_paramspace = bin_parameter_space(exo_data_det, 'radius_p', xlim, 'distance_p', ylim,
-                                                       n_bins=N_bin)
 
-    dos_life = life_det_bins / sample_pop_bins
+    dos = det_bins / sample_pop_bins
 
-    dos_exo = exo_det_bins / sample_pop_bins
-    plot_heatmap(sample_pop_bins, 
+    plot_heatmap(sample_pop_bins,
                  xlim, r'Planet Radius [$R_{\oplus}$]',
                  ylim, "Orbital Distance [AU]",
-                 dos_dir, "Probability Sample Population")
-    plot_heatmap(life_det_bins,
+                 dos_dir, "Distribution Sample Population")
+    plot_heatmap(det_bins,
                  xlim, r'Planet Radius [$R_{\oplus}$]',
                  ylim, "Orbital Distance [AU]",
-                 dos_dir, "Probability LIFEsim Detections")
-    plot_heatmap(dos_life,
+                 dos_dir, "Distribution " + indicator + " Detections")
+    plot_heatmap(dos,
                  xlim, r'Planet Radius [$R_{\oplus}$]',
                  ylim, "Orbital Distance [AU]",
-                 dos_dir, "Depth of Search LIFEsim")
-    plot_heatmap(exo_det_bins,
-                 xlim, r'Planet Radius [$R_{\oplus}$]',
-                 ylim, "Orbital Distance [AU]",
-                 dos_dir, "Probability EXOsim Detections")
-    plot_heatmap(dos_exo,
-                 xlim, r'Planet Radius [$R_{\oplus}$]',
-                 ylim, "Orbital Distance [AU]",
-                 dos_dir, "Depth of Search EXOsim")
+                 dos_dir, "Depth of Search " + indicator)
 
     ####################################################
     # START OF THE CONTINUOUS DEPTH OF SEARCH ANALYSIS #
     ####################################################
 
+    return None
 
 
+def analyse_one_dos(dos_pop_path, sim_names, results_path, N_bin=25):
+    """
+    Uses one of the Sims to analyse the depth of Search of it. Used by DoS_validation_tests.py
+    :param sim_name: Name of the Sims to be analysed
+    :param results_path: save the results
+    :return:
+    """
+    for i in range(len(sim_names)):
+        sim_name = sim_names[i]
+        save_path = results_path.joinpath(sim_name[:-5])
+        dost_stress_test_life_data = pd.read_hdf(dos_pop_path.joinpath("sim_results/" + sim_name))
+        DoS_stress_test_data_det = gd.data_only_det(dost_stress_test_life_data)
+
+        dos_analysis(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, sim_name[:-5] , N_bin)
 
     return None
 
 
-"""
-Pre-Amble Starts here with defining paths, and running the two Sims via "run_it_and_save_it"
-"""
-current_dir = Path(__file__).parent.resolve()
-parent_dir = current_dir.parent.resolve()
-results_path = current_dir.parent.resolve().joinpath("Results/")
-ppop_path = parent_dir.joinpath('LIFEsim-Rick_Branch/exosim_cat/exosim_univ.hdf5')
+if __name__ == '__main__':
+    """
+    Pre-Amble Starts here with defining paths, and running the two Sims via "run_it_and_save_it"
+    """
+    current_dir = Path(__file__).parent.resolve()
+    parent_dir = current_dir.parent.resolve()
+    results_path = parent_dir.resolve().joinpath("Results/")
+    ppop_path = parent_dir.joinpath('LIFEsim-Rick_Branch/exosim_cat/exosim_univ.hdf5')
+    life_results_path = current_dir.joinpath('Analysis/Output/LIFEsim/demo1.hdf5')
 
-# IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
-run_it_and_save_it(results_path, ppop_path=ppop_path)
+    # IF YOU ALRimpoEADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
+    run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
 
+    """
+    After Sims were run and saved (whether it happend during the same run or the results are already saved because the Sims
+    were run earlier) we go into importating DataFrames and applying some masks to them to differentiate between detected
+    planets, underlying population sample, Earth-Likes and so on
+    """
+    # Import DataFrames
+    exo_data, life_data = pd.read_csv(results_path.joinpath("exo_data.csv")), pd.read_csv(
+        results_path.joinpath("life_data.csv"))
+    # Adjust Exo Data
+    exo_data_det = gd.data_only_det(exo_data)
+    # Adjust LIFE Data
+    life_data_det = gd.data_only_det(life_data)
+    # Only Earth-Like
+    mask_life_EE = (life_data_det["radius_p"] > 0.5) & (life_data_det["radius_p"] < 2.5) & \
+                   (life_data_det["Mp"] > 0.5) & (life_data_det["Mp"] < 12)
+    mask_exo_EE = (exo_data_det["radius_p"] > 0.5) & (exo_data_det["radius_p"] < 2.5) & \
+                  (exo_data_det["Mp"] > 0.5) & (exo_data_det["Mp"] < 12)
+    life_data_det_EE = life_data_det[mask_life_EE]
+    exo_data_det_EE = exo_data_det[mask_exo_EE]
 
-"""
-After Sims were run and saved (whether it happend during the same run or the results are already saved because the Sims
-were run earlier) we go into importating DataFrames and applying some masks to them to differentiate between detected
-planets, underlying population sample, Earth-Likes and so on
-"""
-# Import DataFrames
-exo_data, life_data = pd.read_csv(results_path.joinpath("exo_data.csv")), pd.read_csv(
-    results_path.joinpath("life_data.csv"))
-# Adjust Exo Data
-exo_data_det = gd.data_only_det(exo_data)
-# Adjust LIFE Data
-life_data_det = gd.data_only_det(life_data)
-# Only Earth-Like
-mask_life_EE = (life_data_det["radius_p"] > 0.5) & (life_data_det["radius_p"] < 2.5) & \
-               (life_data_det["Mp"] > 0.5) & (life_data_det["Mp"] < 12)
-mask_exo_EE = (exo_data_det["radius_p"] > 0.5) & (exo_data_det["radius_p"] < 2.5) & \
-              (exo_data_det["Mp"] > 0.5) & (exo_data_det["Mp"] < 12)
-life_data_det_EE = life_data_det[mask_life_EE]
-exo_data_det_EE = exo_data_det[mask_exo_EE]
+    """
+    Here the actual code of analyse_data.py is run. Different plots, Radius-Mass Doublechecks, the Depth of Search Analysis
+    and so on. Feel free to add further functions and analysis tools in form of functions later on. 
+    """
+    # Plotting
+    plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
-"""
-Important: All parameter space plots require some limits given. In order to have this the same everywhere and so that we
-only need to change it at one place, all limits are defined here globally. 
-"""
-Rp_lim = [0, 20]  # Planet Radius [R_E]
-Rp_lim_log = [0, 1.5]  # Planet Radius [R_E]
-Mp_lim = [0, 10]  # Planet Mass [M_E]
-Mp_lim_log = [-1, 4]  # Planet Mass [M_E]
-d_orbit_lim = [0, 15]  # Orbital Distance [AU]
-d_orbit_lim_log = [-2, 2]  # Orbital Distance [AU]
-d_orbit_scaled_lim = [0, 15]  # Orbital Distance [AU]
-d_orbit_scaled_lim_log = [-2, 2]  # Orbital Distance [AU]
-d_system_lim = [0, 30]  # System Distance [pc]
-d_system_lim_log = [0, 1.5]  # System Distance [pc]
+    # Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
+    # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
-"""
-Here the actual code of analyse_data.py is run. Different plots, Radius-Mass Doublechecks, the Depth of Search Analysis
-and so on. Feel free to add further functions and analysis tools in form of functions later on. 
-"""
-# Plotting
-plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    # Depth of Search Analysis
+    dos_analysis(life_data, life_data_det, results_path, "LIFE", N_bin=100)
+    dos_analysis(exo_data, exo_data_det, results_path, "HWO", N_bin=100)
 
-# Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
-# radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
-
-# Depth of Search Analysis
-dos_analysis(life_data, exo_data, life_data_det, exo_data_det, results_path, N_bin=100)
-
-print("Analyse Data Finished!")
+    print("Analyse Data Finished!")
