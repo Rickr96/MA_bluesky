@@ -1508,49 +1508,120 @@ def dos_analysis(sample_data, det_data, results_path, indicator, N_bin=25):
     :param results_path: Path where the results will be saved
     :param indicator: String indicating which simulation is being analysed. Either LIFE or EXO
     :param N_bin: Number of bins per axis. Total number of bins will be n_bins^2. Calculation time therefore
+    scales O(n_bins^2), but at the same time, higher amount of bins allows for a smoother DoS distribution.
     :return:
     - Discrete Depth of Search Plots
     - Continuous Depth of Search Plots
     """
-    # Check if "Depth of Search" directory exists in results_path
-    dos_dir = results_path.joinpath("Depth_of_Search")
-    if not os.path.exists(dos_dir):
-        # Create the "Depth_of_Search" directory if it doesn't exist
-        os.makedirs(dos_dir)
 
     # Setup: List of all the parameters, the labels and the limits
-    if indicator == "LIFE":
+    if indicator == "LIFEsim":
         parameters = ["radius_p", "rp", "Mp", "distance_s"]
+    elif indicator == "EXOSIMS":
+        parameters = ["radius_p", "distance_p", "Mp", "distance_s"]
+    else:
+        raise ValueError("Indicator must be either <LIFEsim> or <EXOSIMS>")
+        return None
+
+    labels_log = [r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{orbit}$ [AU]', r'$log_{10}\ M/M_{\oplus}$',
+                  r'$log_{10}\ d_{system}$ [pc]']
+    labels = [r'Planet Radius [$R_{\oplus}$]', "Orbital Distance [AU]", r'Planet Mass [$M_{\oplus}$]',
+              "System Distance [pc]"]
+    limits = [Rp_lim, d_orbit_lim, Mp_lim, d_system_lim]
+    limits_log = [Rp_lim_log, d_orbit_lim_log, Mp_lim_log, d_system_lim_log]
+
+    # Housekeeping with the number of bins
+    N_bin += 1
+
+    # Take out any columns with strings from the dataset so the np.log10() does not fuck up later
+    sample_data_reduced = sample_data[parameters]
+    det_data_reduced = det_data[parameters]
 
     ##################################################
     # START OF THE DISCRETE DEPTH OF SEARCH ANALYSIS #
     ##################################################
-    N_bin += 1
-    xlim = Rp_lim
-    ylim = d_orbit_lim
-    sample_pop_bins, sample_paramspace = bin_parameter_space(sample_data, 'radius_p', xlim, 'rp', ylim,
-                                                             n_bins=N_bin)
-    det_bins, det_paramspace = bin_parameter_space(det_data, 'radius_p', xlim, 'rp', ylim,
-                                                         n_bins=N_bin)
 
-    dos = det_bins / sample_pop_bins
+    # Check if "Depth of Search Discrete" directory exists in results_path
+    dos_discrete_dir = results_path.joinpath("Depth_of_Search_Discrete")
+    if not os.path.exists(dos_discrete_dir):
+        # Create the "Depth_of_Search" directory if it doesn't exist
+        os.makedirs(dos_discrete_dir)
 
-    plot_heatmap(sample_pop_bins,
-                 xlim, r'Planet Radius [$R_{\oplus}$]',
-                 ylim, "Orbital Distance [AU]",
-                 dos_dir, "Distribution Sample Population")
-    plot_heatmap(det_bins,
-                 xlim, r'Planet Radius [$R_{\oplus}$]',
-                 ylim, "Orbital Distance [AU]",
-                 dos_dir, "Distribution " + indicator + " Detections")
-    plot_heatmap(dos,
-                 xlim, r'Planet Radius [$R_{\oplus}$]',
-                 ylim, "Orbital Distance [AU]",
-                 dos_dir, "Depth of Search " + indicator)
+    # Check if "Distributions Discrete" Directory exists in results_path
+    distr_discrete_dir = results_path.joinpath("Discrete_Distributions")
+    if not os.path.exists(distr_discrete_dir):
+        # Create the "Depth_of_Search" directory if it doesn't exist
+        os.makedirs(distr_discrete_dir)
+
+    # Loop over all the parameters
+    for i in range(len(parameters) - 1):
+        for j in range(i + 1, len(parameters)):
+            xlim, ylim, xlim_log, ylim_log = limits[i], limits[j], limits_log[i], limits_log[j]
+
+            ###################################
+            # Linear Depth of Search Analysis #
+            ###################################
+
+            sample_pop_bins, sample_paramspace = bin_parameter_space(sample_data, parameters[i], xlim,
+                                                                     parameters[j], ylim, n_bins=N_bin)
+            det_bins, det_paramspace = bin_parameter_space(det_data, parameters[i], xlim, parameters[j], ylim,
+                                                           n_bins=N_bin)
+            dos = det_bins / sample_pop_bins
+
+            plot_heatmap(sample_pop_bins, xlim, labels[i], ylim, labels[j], distr_discrete_dir,
+                         "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" + parameters[j])
+            plot_heatmap(det_bins, xlim, labels[i], ylim, labels[j], distr_discrete_dir,
+                         "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" + parameters[j])
+            plot_heatmap(dos, xlim, labels[i], ylim, labels[j], dos_discrete_dir,
+                         "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j])
+
+            ################################
+            # Log Depth of Search Analysis #
+            ################################
+
+            sample_pop_bins_log, sample_paramspace_log = bin_parameter_space(np.log10(sample_data_reduced),
+                                                                             parameters[i],
+                                                                             xlim_log,
+                                                                             parameters[j], ylim_log, n_bins=N_bin)
+            det_bins_log, det_paramspace_log = bin_parameter_space(np.log10(det_data_reduced), parameters[i], xlim_log,
+                                                                   parameters[j], ylim_log, n_bins=N_bin)
+            dos_log = det_bins_log / sample_pop_bins_log
+
+            plot_heatmap(sample_pop_bins_log, xlim_log, labels_log[i], ylim_log, labels_log[j], distr_discrete_dir,
+                         "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" + parameters[
+                             j] + "_log")
+            plot_heatmap(det_bins_log, xlim_log, labels_log[i], ylim_log, labels_log[j], distr_discrete_dir,
+                         "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" + parameters[
+                             j] + "_log")
+            plot_heatmap(dos_log, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_discrete_dir,
+                         "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log")
 
     ####################################################
     # START OF THE CONTINUOUS DEPTH OF SEARCH ANALYSIS #
     ####################################################
+
+    # Check if "Depth of Search Continuous" directory exists in results_path
+    dos_discrete_dir = results_path.joinpath("Depth_of_Continuous")
+    if not os.path.exists(dos_discrete_dir):
+        # Create the "Depth_of_Search" directory if it doesn't exist
+        os.makedirs(dos_discrete_dir)
+
+    # Check if "Distributions Continuous" Directory exists in results_path
+    distr_discrete_dir = results_path.joinpath("Discrete_Continuous")
+    if not os.path.exists(distr_discrete_dir):
+        # Create the "Depth_of_Search" directory if it doesn't exist
+        os.makedirs(distr_discrete_dir)
+
+    # Loop over all the parameters
+    for i in range(len(parameters) - 1):
+        for j in range(i + 1, len(parameters)):
+            xlim, ylim, xlim_log, ylim_log = limits[i], limits[j], limits_log[i], limits_log[j]
+
+            ###################################
+            # Linear Depth of Search Analysis #
+            ###################################
+
+
 
     return None
 
@@ -1568,7 +1639,7 @@ def analyse_one_dos(dos_pop_path, sim_names, results_path, N_bin=25):
         dost_stress_test_life_data = pd.read_hdf(dos_pop_path.joinpath("sim_results/" + sim_name))
         DoS_stress_test_data_det = gd.data_only_det(dost_stress_test_life_data)
 
-        dos_analysis(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, sim_name[:-5] , N_bin)
+        dos_analysis(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, sim_name[:-5], N_bin)
 
     return None
 
@@ -1584,7 +1655,7 @@ if __name__ == '__main__':
     life_results_path = current_dir.joinpath('Analysis/Output/LIFEsim/demo1.hdf5')
 
     # IF YOU ALRimpoEADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
-    run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
+    # run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
 
     """
     After Sims were run and saved (whether it happend during the same run or the results are already saved because the Sims
@@ -1611,7 +1682,7 @@ if __name__ == '__main__':
     and so on. Feel free to add further functions and analysis tools in form of functions later on. 
     """
     # Plotting
-    plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    # plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
     # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
