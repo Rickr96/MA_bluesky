@@ -93,7 +93,7 @@ if __name__ == '__main__':
     if not os.path.exists(dos_results_path):
         os.makedirs(dos_results_path)
 
-    dos_pop_path = Path(__file__).parent.resolve().joinpath("Analysis/Populations/Dos_Test_Populations/")
+    dos_pop_path = Path(__file__).parent.resolve().joinpath("Analysis/Populations/DoS_Test_Populations/")
     # Check if the DoS_Results folder exists, if not create it
     if not os.path.exists(dos_pop_path):
         os.makedirs(dos_pop_path)
