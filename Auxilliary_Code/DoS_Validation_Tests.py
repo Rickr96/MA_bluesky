@@ -25,6 +25,10 @@ def run_dos_test(dos_pop_path, dos_results_path, n_processes, need_to_run_lifesi
 
     pythonpath = str(Path(__file__).parent.resolve().parent.joinpath("LIFEsim-Rick_Branch"))
     script_path = Path(__file__).parent.resolve().joinpath("LIFEsim_ExoSim_Inputs.py")
+    sim_results_path = dos_pop_path.joinpath("sim_results")
+    # Check if the DoS_Results folder exists, if not create it
+    if not os.path.exists(sim_results_path):
+        os.makedirs(sim_results_path)
 
     if need_to_run_lifesim:
         # Get the path to every population file in the DoS_Test_Populations folder
@@ -55,7 +59,7 @@ def run_dos_test(dos_pop_path, dos_results_path, n_processes, need_to_run_lifesi
         for process in processes:
             process.join()
 
-    list_of_sims = os.listdir(dos_pop_path.joinpath("sim_results"))
+    list_of_sims = os.listdir(sim_results_path)
     results_per_process = int(len(list_of_sims) / n_processes) + 1
     processes = []
     start_index = 0
@@ -93,10 +97,5 @@ if __name__ == '__main__':
     # Check if the DoS_Results folder exists, if not create it
     if not os.path.exists(dos_pop_path):
         os.makedirs(dos_pop_path)
-
-    sim_results_path = Path(__file__).parent.resolve().joinpath("Analysis/Populations/Dos_Test_Populations/sim_results")
-    # Check if the DoS_Results folder exists, if not create it
-    if not os.path.exists(sim_results_path):
-        os.makedirs(sim_results_path)
 
     run_dos_test(dos_pop_path, dos_results_path, 20, True)
