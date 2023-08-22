@@ -94,4 +94,9 @@ if __name__ == '__main__':
     if not os.path.exists(dos_pop_path):
         os.makedirs(dos_pop_path)
 
+    sim_results_path = Path(__file__).parent.resolve().joinpath("Analysis/Populations/Dos_Test_Populations/sim_results")
+    # Check if the DoS_Results folder exists, if not create it
+    if not os.path.exists(sim_results_path):
+        os.makedirs(sim_results_path)
+
     run_dos_test(dos_pop_path, dos_results_path, 30, True)
