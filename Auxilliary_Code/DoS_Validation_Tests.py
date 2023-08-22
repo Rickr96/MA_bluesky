@@ -94,4 +94,4 @@ if __name__ == '__main__':
     if not os.path.exists(dos_pop_path):
         os.makedirs(dos_pop_path)
 
-    run_dos_test(dos_pop_path, dos_results_path, 4, False)
+    run_dos_test(dos_pop_path, dos_results_path, 30, True)
