@@ -11,6 +11,7 @@ import warnings
 from pathlib import Path
 from scipy.stats import gaussian_kde, iqr
 import forecaster.mr_forecast as mr
+import seaborn as sns
 
 parent_dir = Path(__file__).parents[1]
 os.chdir(parent_dir.joinpath("EXOSIMS"))
@@ -29,7 +30,7 @@ only need to change it at one place, all limits are defined here globally.
 
 Rp_lim = [0, 20]  # Planet Radius [R_E]
 Rp_lim_log = [0, 1.5]  # Planet Radius [R_E]
-Mp_lim = [0, 10]  # Planet Mass [M_E]
+Mp_lim = [0, 100]  # Planet Mass [M_E]
 Mp_lim_log = [-1, 4]  # Planet Mass [M_E]
 d_orbit_lim = [0, 15]  # Orbital Distance [AU]
 d_orbit_lim_log = [-2, 2]  # Orbital Distance [AU]
@@ -1444,7 +1445,7 @@ def bin_parameter_space(data, x_param, xlim, y_param, ylim, n_bins):
     return twod_param_p, twod_paramspace
 
 
-def plot_heatmap(data, xlim, xlable, ylim, ylable, results_path, title):
+def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title):
     """
     Generates and displays a heatmap based on input data and parameters.
 
@@ -1454,6 +1455,7 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, results_path, title):
     xlable (str): Label for the x-axis.
     ylim (list): List containing two values specifying the y-axis limits.
     ylabel (str): Label for the y-axis.
+    dos_cont (array-like): One-dimensional array of depth of search values for the contour lines.
     results_path (Path or str): Path where the SVG file will be saved.
     title (str): Title of the heatmap.
 
@@ -1472,6 +1474,9 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, results_path, title):
     # Create the heatmap
     # For some reason it was flipped, by transposing you can fix it
     heatmap = plt.imshow(data.T, cmap=cmap, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect='auto')
+    xi, yi = np.meshgrid(np.linspace(xlim[0], xlim[1], data.shape[0]), np.linspace(ylim[0], ylim[1], data.shape[1]))
+    contour_levels = np.linspace(0, data.max(), 10)
+    contour = plt.contour(xi, yi, dos_cont.reshape(yi.shape).T, levels=contour_levels, colors='black', linewidths=0.5)
 
     # Add a colorbar
     cbar = plt.colorbar(heatmap)
@@ -1491,7 +1496,45 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, results_path, title):
     return None
 
 
-def dos_analysis(sample_data, det_data, results_path, indicator, N_bin=25):
+def contourf_single_plot(xi, yi, zi, results_path, title, xlabel, ylabel, DoS=False, logb=False):
+    """
+    This function generates a contourf plot of the Depth of Search or distributions for a single parameter space.
+    :param xi: X grid of the parameter space
+    :param yi: Y grid of the parameter space
+    :param zi: Z grid of the parameter space
+    :param results_path: Path where the results will be saved
+    :param title: Title of the plot
+    :param xlabel: Label of the x-axis
+    :param ylabel: Label of the y-axis
+    :return:
+    """
+
+    contour_levels = np.linspace(zi.min(), zi.max(), 10)
+
+    if title[:15] == "Depth of Search":
+        if logb:
+            contour_label = r'$log_{10}\ Depth\ of\ Search$'
+        else:
+            contour_label = "Depth of Search"
+    else:
+        contour_label = "Probability Density"
+
+    contourf = plt.contourf(xi, yi, zi.reshape(xi.shape), levels=contour_levels, cmap='viridis', extend='both')
+    # Create contour lines with black color
+    contour = plt.contour(xi, yi, zi.reshape(xi.shape), levels=contour_levels, colors='black', linewidths=0.5)
+
+    plt.colorbar(contourf, label=contour_label)
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.savefig(results_path.joinpath(title + ".svg"))
+    plt.close()
+
+    return None
+
+
+def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25):
     """
     This function summarizes all the analysis, calculations and plot generation with respect to the Depth of Search
     Metric. This includes (currently):
@@ -1542,38 +1585,74 @@ def dos_analysis(sample_data, det_data, results_path, indicator, N_bin=25):
     ##################################################
 
     # Check if "Depth of Search Discrete" directory exists in results_path
-    dos_discrete_dir = results_path.joinpath("Depth_of_Search_Discrete")
+    dos_discrete_dir = results_path.joinpath("Depth_of_Search_Discrete_Naive")
     if not os.path.exists(dos_discrete_dir):
         # Create the "Depth_of_Search" directory if it doesn't exist
         os.makedirs(dos_discrete_dir)
 
-    # Check if "Distributions Discrete" Directory exists in results_path
-    distr_discrete_dir = results_path.joinpath("Discrete_Distributions")
-    if not os.path.exists(distr_discrete_dir):
+    # Check if "Depth of Search Continuous" directory exists in results_path
+    dos_cont_dir = results_path.joinpath("Depth_of_Search_Continuous_Naive")
+    if not os.path.exists(dos_cont_dir):
         # Create the "Depth_of_Search" directory if it doesn't exist
-        os.makedirs(distr_discrete_dir)
+        os.makedirs(dos_cont_dir)
+
+    # Check if "Distributions Continuous" Directory exists in results_path
+    distr_cont_dir = results_path.joinpath("Continuous_Distribution")
+    if not os.path.exists(distr_cont_dir):
+        # Create the "Depth_of_Search" directory if it doesn't exist
+        os.makedirs(distr_cont_dir)
 
     # Loop over all the parameters
     for i in range(len(parameters) - 1):
         for j in range(i + 1, len(parameters)):
+            t1 = time.time()
             xlim, ylim, xlim_log, ylim_log = limits[i], limits[j], limits_log[i], limits_log[j]
+
+            x_sample, y_sample = sample_data[parameters[i]], sample_data[parameters[j]]
+            x_det, y_det = det_data[parameters[i]], det_data[parameters[j]]
 
             ###################################
             # Linear Depth of Search Analysis #
             ###################################
-
             sample_pop_bins, sample_paramspace = bin_parameter_space(sample_data, parameters[i], xlim,
                                                                      parameters[j], ylim, n_bins=N_bin)
             det_bins, det_paramspace = bin_parameter_space(det_data, parameters[i], xlim, parameters[j], ylim,
                                                            n_bins=N_bin)
             dos = det_bins / sample_pop_bins
 
-            plot_heatmap(sample_pop_bins, xlim, labels[i], ylim, labels[j], distr_discrete_dir,
-                         "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" + parameters[j])
-            plot_heatmap(det_bins, xlim, labels[i], ylim, labels[j], distr_discrete_dir,
-                         "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" + parameters[j])
-            plot_heatmap(dos, xlim, labels[i], ylim, labels[j], dos_discrete_dir,
+            mesh_N = N_bin * 1j
+            xi, yi = np.mgrid[xlim[0]:xlim[1]:mesh_N, ylim[0]:ylim[1]:mesh_N]
+
+            kde_sample = gaussian_kde([x_sample, y_sample])
+            zi_sample = kde_sample(np.vstack([xi.flatten(), yi.flatten()]))
+            kde_det = gaussian_kde([x_det, y_det])
+            zi_det = kde_det(np.vstack([xi.flatten(), yi.flatten()]))
+
+            threshold = 1e-4
+            zi_sample[zi_sample < threshold * zi_sample.max()] = 0
+            zi_det[zi_det < threshold * zi_det.max()] = 0
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                dos_cont = np.true_divide(zi_det, zi_sample)
+                dos_cont[dos_cont == np.inf] = 0
+                dos_cont = np.nan_to_num(dos_cont)
+
+            plot_heatmap(dos, xlim, labels[i], ylim, labels[j], dos_cont, dos_discrete_dir,
                          "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j])
+
+            contourf_single_plot(xi, yi, zi_sample, distr_cont_dir,
+                                 "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" + parameters[
+                                     j],
+                                 labels[i], labels[j])
+
+            contourf_single_plot(xi, yi, zi_det, distr_cont_dir,
+                                 "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" + parameters[
+                                     j],
+                                 labels[i], labels[j])
+
+            contourf_single_plot(xi, yi, dos_cont, dos_cont_dir,
+                                 "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j],
+                                 labels[i], labels[j], DoS=True)
 
             ################################
             # Log Depth of Search Analysis #
@@ -1587,46 +1666,46 @@ def dos_analysis(sample_data, det_data, results_path, indicator, N_bin=25):
                                                                    parameters[j], ylim_log, n_bins=N_bin)
             dos_log = det_bins_log / sample_pop_bins_log
 
-            plot_heatmap(sample_pop_bins_log, xlim_log, labels_log[i], ylim_log, labels_log[j], distr_discrete_dir,
-                         "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" + parameters[
-                             j] + "_log")
-            plot_heatmap(det_bins_log, xlim_log, labels_log[i], ylim_log, labels_log[j], distr_discrete_dir,
-                         "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" + parameters[
-                             j] + "_log")
-            plot_heatmap(dos_log, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_discrete_dir,
+            xi_log, yi_log = np.mgrid[xlim_log[0]:xlim_log[1]:mesh_N, ylim_log[0]:ylim_log[1]:mesh_N]
+
+            kde_sample_log = gaussian_kde([np.log10(x_sample), np.log10(y_sample)])
+            zi_sample_log = kde_sample_log(np.vstack([xi_log.flatten(), yi_log.flatten()]))
+            kde_det_log = gaussian_kde([np.log10(x_det), np.log10(y_det)])
+            zi_det_log = kde_det_log(np.vstack([xi_log.flatten(), yi_log.flatten()]))
+
+            threshold_log = 1e-3
+            zi_sample_log[zi_sample_log < threshold_log * zi_sample_log.max()] = 0
+            zi_det_log[zi_det_log < threshold_log * zi_det_log.max()] = 0
+
+            with np.errstate(divide='ignore', invalid='ignore'):
+                dos_cont_log = np.true_divide(zi_det_log, zi_sample_log)
+                dos_cont_log[dos_cont_log == np.inf] = 0
+                dos_cont_log = np.nan_to_num(dos_cont_log)
+
+            plot_heatmap(dos_log, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_cont_log, dos_discrete_dir,
                          "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log")
 
-    ####################################################
-    # START OF THE CONTINUOUS DEPTH OF SEARCH ANALYSIS #
-    ####################################################
+            contourf_single_plot(xi_log, yi_log, zi_sample_log, distr_cont_dir,
+                                 "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" + parameters[
+                                     j] + "_log",
+                                 labels_log[i], labels_log[j])
 
-    # Check if "Depth of Search Continuous" directory exists in results_path
-    dos_discrete_dir = results_path.joinpath("Depth_of_Continuous")
-    if not os.path.exists(dos_discrete_dir):
-        # Create the "Depth_of_Search" directory if it doesn't exist
-        os.makedirs(dos_discrete_dir)
+            contourf_single_plot(xi_log, yi_log, zi_det_log, distr_cont_dir,
+                                 "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" + parameters[
+                                     j] + "_log",
+                                 labels_log[i], labels_log[j])
 
-    # Check if "Distributions Continuous" Directory exists in results_path
-    distr_discrete_dir = results_path.joinpath("Discrete_Continuous")
-    if not os.path.exists(distr_discrete_dir):
-        # Create the "Depth_of_Search" directory if it doesn't exist
-        os.makedirs(distr_discrete_dir)
+            contourf_single_plot(xi_log, yi_log, dos_cont_log, dos_cont_dir,
+                                 "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log",
+                                 labels_log[i], labels_log[j], DoS=True, logb=True)
 
-    # Loop over all the parameters
-    for i in range(len(parameters) - 1):
-        for j in range(i + 1, len(parameters)):
-            xlim, ylim, xlim_log, ylim_log = limits[i], limits[j], limits_log[i], limits_log[j]
-
-            ###################################
-            # Linear Depth of Search Analysis #
-            ###################################
-
-
+    t2 = time.time()
+    print("Time to calculate Depth of Search for", parameters[i], parameters[j], ": ", t2 - t1)
 
     return None
 
 
-def analyse_one_dos(dos_pop_path, sim_names, results_path, N_bin=25):
+def analyse_one_dos(dos_pop_path, sim_names, results_path, N_bin=100):
     """
     Uses one of the Sims to analyse the depth of Search of it. Used by DoS_validation_tests.py
     :param sim_name: Name of the Sims to be analysed
@@ -1639,10 +1718,77 @@ def analyse_one_dos(dos_pop_path, sim_names, results_path, N_bin=25):
         dost_stress_test_life_data = pd.read_hdf(dos_pop_path.joinpath("sim_results/" + sim_name))
         DoS_stress_test_data_det = gd.data_only_det(dost_stress_test_life_data)
 
-        dos_analysis(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, sim_name[:-5], N_bin)
+        dos_analysis_naive(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, sim_name[:-5], N_bin)
 
     return None
 
+
+def corner_plots(sample_data, life_det, exo_det, results_path):
+    """
+    This function generates corner plots of the underlying sample population and of the detected planets from the
+    Exosim and Lifesim simulations using the seaborn package. Once for linear and once for log-log plots.
+    :param sample_data:
+    :param life_det:
+    :param exo_det:
+    :param results_path:
+    :return:
+    """
+
+    save_path = results_path.joinpath("Corner_Plots")
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    parameters_life = ["radius_p", "rp", "rp_scaled", "Mp", "distance_s"]
+    parameters_exo = ["radius_p", "distance_p", "distance_p_scaled", "Mp", "distance_s"]
+
+    labels_log = [r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{orbit}$ [AU]',
+                  r'$log_{10}\ d_{orbit, scaled}$ [AU/$\sqrt{L}$]',
+                  r'$log_{10}\ M/M_{\oplus}$', r'$log_{10}\ d_{system}$ [pc]']
+    labels = [r'Planet Radius [$R_{\oplus}$]', "Orbital Distance [AU]", r'Orbital Distance Scaled [AU/$\sqrt{L}$]',
+              r'Planet Mass [$M_{\oplus}$]', "System Distance [pc]"]
+
+    limits = [Rp_lim, d_orbit_lim, d_orbit_scaled_lim, Mp_lim, d_system_lim]
+    limits_log = [Rp_lim_log, d_orbit_lim_log, d_orbit_scaled_lim_log, Mp_lim_log, d_system_lim_log]
+
+    # Add the scaled orbit distance to the dataframe
+    sample_data["rp_scaled"] = sample_data["rp"] / np.sqrt(sample_data["l_sun"])
+    life_det["rp_sclaed"] = life_det["rp"] / np.sqrt(life_det["l_sun"])
+    exo_det["distance_p_scaled"] = exo_det["distance_p"] / np.sqrt(exo_det["L_star"])
+
+
+    one_corner_plot(sample_data, parameters_life, labels, limits, save_path, "LIFEsim")
+    one_corner_plot(life_det, parameters_life, labels, limits, save_path, "LIFEsim_Detections")
+    one_corner_plot(exo_det, parameters_exo, labels, limits, save_path, "EXOSIMS_Detections")
+
+
+    return None
+
+def one_corner_plot(data, parameters, labels, limits, save_path, title):
+    """
+    This function generates a corner plot of the data given in the dataframe 'data' using the seaborn package.
+    :param data: Dataframe containing the data to be plotted
+    :param parameters: List of the parameters to be plotted
+    :param labels: List of the labels of the parameters to be plotted
+    :param limits: List of the limits of the parameters to be plotted
+    :param save_path: Path where the results will be saved
+    :param title: Title of the plot
+    :return:
+    """
+
+    g = sns.PairGrid(data, vars=parameters, diag_sharey=False, corner=True)
+    g.map_lower(sns.kdeplot, levels=5, color="black")
+    g.map_diag(sns.histplot, kde=True, color="black")
+    # No Upper at the moment, maybe later (DoS?)
+    # g.map_upper(sns.scatterplot, color="black")
+    for i in range(0, len(parameters)):
+        for j in range(0, len(parameters)):
+            g.axis[i, j].set_xlabel(labels[j])
+            g.axis[i, j].set_ylabel(labels[i])
+
+    g.fig.suptitle(title)
+    g.savefig(save_path.joinpath(title + ".svg"))
+
+    return None
 
 if __name__ == '__main__':
     """
@@ -1688,7 +1834,10 @@ if __name__ == '__main__':
     # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Depth of Search Analysis
-    dos_analysis(life_data, life_data_det, results_path, "LIFEsim", N_bin=25)
-    dos_analysis(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=25)
+    #dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=100)
+    #dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=100)
+
+    # Corner Plots
+    corner_plots(life_data, life_data_det, exo_data_det, results_path)
 
     print("Analyse Data Finished!")
