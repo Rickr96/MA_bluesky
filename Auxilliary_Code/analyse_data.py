@@ -1791,6 +1791,13 @@ def analyse_one_dos(dos_pop_path, sim_names, results_path, indicator, N_bin=100)
         save_path = results_path.joinpath(sim_name[:-5])
         dost_stress_test_life_data = pd.read_hdf(dos_pop_path.joinpath("sim_results/" + sim_name))
         DoS_stress_test_data_det = gd.data_only_det(dost_stress_test_life_data)
+        # For Whatever reason P-Pop is inconsistent with its naming conventions
+        if 'p_orb' in dost_stress_test_life_data.columns:
+            dost_stress_test_life_data.rename(columns={'p_orb': 'rp'}, inplace=True)
+            DoS_stress_test_data_det.rename(columns={'p_orb': 'rp'}, inplace=True)
+        if 'mass_p' in dost_stress_test_life_data.columns:
+            dost_stress_test_life_data.rename(columns={'mass_p': 'Mp'}, inplace=True)
+            DoS_stress_test_data_det.rename(columns={'mass_p': 'Mp'}, inplace=True)
 
         dos_analysis_naive(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, indicator, N_bin)
 
