@@ -22,6 +22,7 @@ import EXOSIMS.MissionSim
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 """
 Important: All parameter space plots require some limits given. In order to have this the same everywhere and so that we
@@ -1741,17 +1742,109 @@ def corner_plots(sample_data, life_det, exo_det, results_path):
     parameters_life = ["radius_p", "rp", "rp_scaled", "Mp", "distance_s"]
     parameters_exo = ["radius_p", "distance_p", "distance_p_scaled", "Mp", "distance_s"]
 
-    dummy = life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])
     labels_log = [r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{orbit}$ [AU]',
                   r'$log_{10}\ d_{orbit, scaled}$ [AU/$\sqrt{L}$]',
                   r'$log_{10}\ M/M_{\oplus}$', r'$log_{10}\ d_{system}$ [pc]']
     labels = [r'Planet Radius [$R_{\oplus}$]', "Orbital Distance [AU]", r'Orbital Distance Scaled [AU/$\sqrt{L}$]',
               r'Planet Mass [$M_{\oplus}$]', "System Distance [pc]"]
-    limits = [Rp_lim, d_orbit_lim, d_orbit_scaled_lim, Mp_lim, d_system_lim]
-    limits_log = [Rp_lim_log, d_orbit_lim_log, d_orbit_scaled_lim_log, Mp_lim_log, d_system_lim_log]
+    limits = [Rp_lim, d_orbit_lim, d_orbit_lim, Mp_lim, d_system_lim]
+    limits_log = [Rp_lim_log, d_orbit_lim_log, d_orbit_lim_log, Mp_lim_log, d_system_lim_log]
 
+    # Add the scaled orbit distance to the dataframe
+    sample_data["rp_scaled"] = sample_data["rp"] / np.sqrt(sample_data["l_sun"])
+    life_det["rp_scaled"] = life_det["rp"] / np.sqrt(life_det["l_sun"])
+    exo_det["distance_p_scaled"] = exo_det["distance_p"] / np.sqrt(exo_det["L_star"])
+
+    sample_data_log = sample_data.applymap(lambda x: np.log10(x) if isinstance(x, (int, float)) else x)
+    life_det_log = life_det.applymap(lambda x: np.log10(x) if isinstance(x, (int, float)) else x)
+    exo_det_log = exo_det.applymap(lambda x: np.log10(x) if isinstance(x, (int, float)) else x)
+
+    one_corner_plot(life_det_log, parameters_life, labels_log, limits_log, save_path, "LIFEsim Detections log-scale")
+    one_corner_plot(exo_det_log, parameters_exo, labels_log, limits_log, save_path, "EXOSIMS Detections log-scale")
+    one_corner_plot(sample_data_log, parameters_life, labels_log, limits_log, save_path, "Sample Population log-scale")
+
+    one_corner_plot(life_det, parameters_life, labels, limits, save_path, "LIFEsim Detections")
+    one_corner_plot(exo_det, parameters_exo, labels, limits, save_path, "EXOSIMS Detections")
+    one_corner_plot(sample_data, parameters_life, labels, limits, save_path, "Sample Population")
 
     return None
+
+
+def one_corner_plot(data, parameters, labels, limits, save_path, title, DoS=False, sample_data=None):
+    """
+    This function generates a corner plot of the data given in the dataframe 'data' using the seaborn package.
+    :param data: Dataframe containing the data to be plotted
+    :param parameters: List of the parameters to be plotted
+    :param labels: List of the labels of the parameters to be plotted
+    :param limits: List of the limits of the parameters to be plotted
+    :param save_path: Path where the results will be saved
+    :param title: Title of the plot
+    :param DoS: Boolean indicating if the plot shall also contain the Depth of Search
+    :param sample_data: Dataframe containing the underlying sample population. Only needed if DoS=True
+    :return:
+    """
+    for old_name, new_name in zip(parameters, labels):
+        data.rename(columns={old_name: new_name}, inplace=True)
+
+    sns.set_style("ticks")
+    sns.despine()
+    sns.color_palette("viridis")
+    g = sns.pairplot(data, kind="kde", vars=labels, corner=True,
+                     diag_kws=dict(fill=True, bw_adjust=0.5, cut=0.1),
+                     plot_kws=dict(fill=True, bw_adjust=0.5, cut=0.1, cmap="viridis"))
+    # No Upper at the moment, maybe later (DoS?)
+    if DoS:
+        g.map_upper(DoS_corner, color="black")
+
+    for i in range(len(g.axes)):
+        for j in range(i):
+            g.axes[i][j].set_xlim(limits[j])
+            if j != i:
+                g.axes[i][j].set_ylim(limits[i])
+
+    g.fig.suptitle(title)
+    g.savefig(save_path.joinpath(title + ".svg"))
+
+    return None
+
+
+def DoS_corner(x, y, limit=None, **kwargs):
+    """
+    This function is used to plot the Depth of Search in the corner plots. It is used by the seaborn package.
+    :param limit: Limit of the parameter space
+    :param x: X-axis of the plot
+    :param y: Y-axis of the plot
+    :param kwargs: Additional arguments
+    :return:
+    """
+    # Get the current axis
+    ax = plt.gca()
+    # Get the current data
+    x = x.values
+    y = y.values
+    # Get the Limits
+    xlim = limit[0]
+    ylim = limit[1]
+
+    xi, yi = np.mgrid[xlim[0]:xlim[1]:100j, ylim[0]:ylim[1]:100j]
+    kde_sample = gaussian_kde([x_sampel, y_sampel])
+    zi_sample = kde_sample(np.vstack([xi.flatten(), yi.flatten()]))
+    kde_det = gaussian_kde([x, y])
+    zi_det = kde_det(np.vstack([xi.flatten(), yi.flatten()]))
+
+    threshold = 1e-4
+    zi_sample[zi_sample < threshold * zi_sample.max()] = 0
+    zi_det[zi_det < threshold * zi_det.max()] = 0
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        dos_cont = np.true_divide(zi_det, zi_sample)
+        dos_cont[dos_cont == np.inf] = 0
+        dos_cont = np.nan_to_num(dos_cont)
+
+    # Make the plot
+
+    return None
+
 
 if __name__ == '__main__':
     """
@@ -1763,7 +1856,7 @@ if __name__ == '__main__':
     ppop_path = parent_dir.joinpath('LIFEsim-Rick_Branch/exosim_cat/exosim_univ.hdf5')
     life_results_path = current_dir.joinpath('Analysis/Output/LIFEsim/demo1.hdf5')
 
-    # IF YOU ALRimpoEADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
+    # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
     # run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
 
     """
@@ -1797,7 +1890,10 @@ if __name__ == '__main__':
     # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Depth of Search Analysis
-    dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=100)
-    dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=100)
+    # dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=100)
+    # dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=100)
+
+    # Corner Plots
+    corner_plots(life_data, life_data_det, exo_data_det, results_path)
 
     print("Analyse Data Finished!")
