@@ -726,7 +726,7 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
     return None
 
 
-def kde_distr_plot(life_data_d, exo_data_d, result_path, name, xlabel, xlim,
+def kde_distr_plot(life_data_d, exo_data_d, sample_data_d, result_path, name, xlabel, xlim,
                    detected=False, draw_HZ=False, HZ_inner=None, HZ_outer=None, log=False):
     """
     """
@@ -740,18 +740,21 @@ def kde_distr_plot(life_data_d, exo_data_d, result_path, name, xlabel, xlim,
 
     # Rename columns ready for df to be merged for seaborn
     life_data_d_new, exo_data_d_new = life_data_d.to_frame(), exo_data_d.to_frame()
+    sample_data_d_new = sample_data_d.to_frame()
     life_col_name, exo_col_name = life_data_d_new.columns[0], exo_data_d_new.columns[0]
+    sample_col_name = sample_data_d_new.columns[0]
     # Merge the Dataframes for Seaborn to work with it
     data = pd.concat([life_data_d_new.rename(columns={life_col_name: xlabel}),
-                      exo_data_d_new.rename(columns={exo_col_name: xlabel})],
-                     keys=['LIFEsim', 'EXOSIMS'], names=['Simulation'])
+                      exo_data_d_new.rename(columns={exo_col_name: xlabel}),
+                      sample_data_d_new.rename(columns={sample_col_name: xlabel})],
+                     keys=['LIFEsim', 'EXOSIMS', 'Sample'], names=['Simulation'])
 
     fig = plt.figure(figsize=(8, 7))
 
     gs = fig.add_gridspec(2, 1, height_ratios=[20, 1])
     ax_kde = plt.subplot(gs[0])
 
-    g = sns.kdeplot(data, hue="Simulation", x=xlabel, palette='viridis', fill=True, alpha=.5,
+    g = sns.kdeplot(data, hue="Simulation", x=xlabel, palette='viridis', fill=True, alpha=.5, multiple='layer',
                     common_norm=False, cut=0.1, bw_adjust=0.25, legend=True)
 
     g.set_xlim(xlim)
@@ -1096,7 +1099,6 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
               "Hot Sub-Jovian", "Warm Sub-Jovian", "Cold Sub-Jovian",
               "Hot Jovian", "Warm Jovian", "Cold Jovian"]
     stypes = ["F", "G", "K", "M"]
-    """
     # Bar Plot
     bar_cat_plot(life_data, exo_data, ptypes, 'ptype', stypes, 'stype', save=True, result_path=results_path,
                  name="ptypes_stypes")
@@ -1141,65 +1143,70 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     ##################################
     # Detected Planets Histograms ####
     ##################################
-    """
     # Planet Radius
     kde_distr_plot(life_data_det["radius_p"].astype(float), exo_data_det["radius_p"].astype(float),
-                                results_path,
-                                "Distribution Planet Radius Detected Planets",
-                                r'Planet Radius [$R_{\oplus}$]', xlim=Rp_lim, detected=True)
+                   life_data["radius_p"].astype(float), results_path,
+                   "Distribution Planet Radius Detected Planets",
+                   r'Planet Radius [$R_{\oplus}$]', xlim=Rp_lim, detected=True)
     kde_distr_plot(np.log10(life_data_det["radius_p"].astype(float)),
-                                np.log10(exo_data_det["radius_p"].astype(float)), results_path,
-                                "log Distribution Planet Radius Detected Planets",
-                                r'$log_{10}\ R/R_{\oplus}$', xlim=Rp_lim_log, detected=True, log=True)
+                   np.log10(exo_data_det["radius_p"].astype(float)),
+                   np.log10(life_data["radius_p"].astype(float)), results_path,
+                   "log Distribution Planet Radius Detected Planets",
+                   r'$log_{10}\ R/R_{\oplus}$', xlim=Rp_lim_log, detected=True, log=True)
 
     # Planet Mass
-    kde_distr_plot(life_data_det["Mp"].astype(float), exo_data_det["Mp"].astype(float), results_path,
-                                "Distribution Planet Mass Detected Planets",
-                                r'Planet Mass [$M_{\oplus}$]', xlim=Mp_lim, detected=True)
+    kde_distr_plot(life_data_det["Mp"].astype(float), exo_data_det["Mp"].astype(float),
+                   life_data["Mp"].astype(float), results_path,
+                   "Distribution Planet Mass Detected Planets",
+                   r'Planet Mass [$M_{\oplus}$]', xlim=Mp_lim, detected=True)
     kde_distr_plot(np.log10(life_data_det["Mp"].astype(float)),
-                                np.log10(exo_data_det["Mp"].astype(float)), results_path,
-                                "log Distribution Planet Mass Detected Planets",
-                                r'$log_{10}\ M/M_{\oplus}$', xlim=Mp_lim_log, detected=True, log=True)
+                   np.log10(exo_data_det["Mp"].astype(float)),
+                   np.log10(life_data["Mp"].astype(float)), results_path,
+                   "log Distribution Planet Mass Detected Planets",
+                   r'$log_{10}\ M/M_{\oplus}$', xlim=Mp_lim_log, detected=True, log=True)
 
     # Planet orbital distance
     kde_distr_plot(life_data_det["rp"].astype(float), exo_data_det["distance_p"].astype(float),
-                                results_path, "Distribution Orbital Distance Detected Planets",
-                                "Orbital Distance [AU]", xlim=d_orbit_lim, detected=True)
+                   life_data["rp"].astype(float), results_path, "Distribution Orbital Distance Detected Planets",
+                   "Orbital Distance [AU]", xlim=d_orbit_lim, detected=True)
     kde_distr_plot(np.log10(life_data_det["rp"].astype(float)),
-                                np.log10(exo_data_det["distance_p"].astype(float)), results_path,
-                                "log Distribution Orbital Distance Detected Planets",
-                                r'$log_{10}\ d_{orbit}$ [AU]', xlim=d_orbit_lim_log, detected=True, log=True)
+                   np.log10(exo_data_det["distance_p"].astype(float)),
+                   np.log10(life_data["rp"].astype(float)), results_path,
+                   "log Distribution Orbital Distance Detected Planets",
+                   r'$log_{10}\ d_{orbit}$ [AU]', xlim=d_orbit_lim_log, detected=True, log=True)
 
     # Also scaled by stellar luminosity HZ Values are for solar like star (according to Hz definition in LIFEsim) and
     # values will naturally be scaled to that in the histogram
     hz_in = 0.75
     hz_out = 1.77
     kde_distr_plot((life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])).astype(float),
-                                (exo_data_det["distance_p"] / np.sqrt(exo_data_det["L_star"])).astype(float),
-                                results_path, "Distribution Orbital Distance Scaled Detected Planets",
-                                r'$d_{orbit}$ [AU] / $\sqrt{L_{star}}$', xlim=d_orbit_scaled_lim, detected=True,
-                                draw_HZ=True, HZ_inner=hz_in, HZ_outer=hz_out)
+                   (exo_data_det["distance_p"] / np.sqrt(exo_data_det["L_star"])).astype(float),
+                   (life_data["rp"] / np.sqrt(life_data["l_sun"])).astype(float),
+                   results_path, "Distribution Orbital Distance Scaled Detected Planets",
+                   r'$d_{orbit}$ [AU] / $\sqrt{L_{star}}$', xlim=d_orbit_scaled_lim, detected=True,
+                   draw_HZ=True, HZ_inner=hz_in, HZ_outer=hz_out)
     kde_distr_plot(np.log10((life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])).astype(float)),
-                                np.log10((exo_data_det["distance_p"] / np.sqrt(exo_data_det["L_star"])).astype(float)),
-                                results_path, "log Distribution Orbital Distance Scaled Detected Planets",
-                                r'$log_{10}\ (d_{orbit}$ [AU] / $\sqrt{L_{star}})$', xlim=d_orbit_scaled_lim_log,
-                                detected=True, draw_HZ=True, HZ_inner=np.log10(hz_in), HZ_outer=np.log10(hz_out),
-                                log=True)
+                   np.log10((exo_data_det["distance_p"] / np.sqrt(exo_data_det["L_star"])).astype(float)),
+                   np.log10((life_data["rp"] / np.sqrt(life_data["l_sun"])).astype(float)),
+                   results_path, "log Distribution Orbital Distance Scaled Detected Planets",
+                   r'$log_{10}\ (d_{orbit}$ [AU] / $\sqrt{L_{star}})$', xlim=d_orbit_scaled_lim_log,
+                   detected=True, draw_HZ=True, HZ_inner=np.log10(hz_in), HZ_outer=np.log10(hz_out),
+                   log=True)
 
     # System Distance
     kde_distr_plot(life_data_det["distance_s"].astype(float), exo_data_det["distance_s"].astype(float),
-                                results_path,
-                                "Distribution System Distance Detected Planets",
-                                "System Distance [pc]", xlim=d_system_lim, detected=True)
+                   life_data["distance_s"].astype(float), results_path,
+                   "Distribution System Distance Detected Planets",
+                   "System Distance [pc]", xlim=d_system_lim, detected=True)
     kde_distr_plot(np.log10(life_data_det["distance_s"].astype(float)),
-                                np.log10(exo_data_det["distance_s"].astype(float)), results_path,
-                                "log Distribution System Distance Detected Planets",
-                                r'$log_{10}\ d_{system}$ [pc]', xlim=d_system_lim_log, detected=True, log=True)
+                   np.log10(exo_data_det["distance_s"].astype(float)),
+                   np.log10(life_data["distance_s"].astype(float)), results_path,
+                   "log Distribution System Distance Detected Planets",
+                   r'$log_{10}\ d_{system}$ [pc]', xlim=d_system_lim_log, detected=True, log=True)
 
     ############################
     # Virtual Population Plots #
     ############################
-    """
     # Rp vs Mp
     kde_distribution_plot(life_data["radius_p"].astype(float), life_data["Mp"].astype(float), results_path,
                           "Sample Population Rp-Mp",
@@ -1344,7 +1351,6 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
                           results_path, "LIFEsim Detected d_orbit-d_s log-log",
                           r'$log_{10}\ d_{orbit}$ [AU]', r'$log_{10}\ d_{system}$ [pc]',
                           xlim=d_orbit_lim_log, ylim=d_system_lim_log, detected=True)
-    """
     return None
 
 
