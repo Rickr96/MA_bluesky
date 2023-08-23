@@ -726,6 +726,79 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
     return None
 
 
+def kde_distr_plot(life_data_d, exo_data_d, result_path, name, xlabel, xlim,
+                   detected=False, draw_HZ=False, HZ_inner=None, HZ_outer=None, log=False):
+    """
+    """
+    new_dir = result_path.joinpath("1D-Distributions")
+
+    if not os.path.exists(new_dir):
+        # Create the "Radius_Mass_Doublecheck" directory if it doesn't exist
+        os.makedirs(new_dir)
+
+    result_path = new_dir
+
+    # Rename columns ready for df to be merged for seaborn
+    life_data_d_new, exo_data_d_new = life_data_d.to_frame(), exo_data_d.to_frame()
+    life_col_name, exo_col_name = life_data_d_new.columns[0], exo_data_d_new.columns[0]
+    # Merge the Dataframes for Seaborn to work with it
+    data = pd.concat([life_data_d_new.rename(columns={life_col_name: xlabel}),
+                      exo_data_d_new.rename(columns={exo_col_name: xlabel})],
+                     keys=['LIFEsim', 'EXOSIMS'], names=['Simulation'])
+
+    fig = plt.figure(figsize=(8, 7))
+
+    gs = fig.add_gridspec(2, 1, height_ratios=[20, 1])
+    ax_kde = plt.subplot(gs[0])
+
+    g = sns.kdeplot(data, hue="Simulation", x=xlabel, palette='viridis', fill=True, alpha=.5,
+                    common_norm=False, cut=0.1, bw_adjust=0.25, legend=True)
+
+    g.set_xlim(xlim)
+
+    # Vertical Lines with location of HZ and the mean of the data
+    vert_lines = []
+    if log:
+        life_mean = np.log10((10 ** life_data_d).mean())
+        exo_mean = np.log10((10 ** exo_data_d).mean())
+    else:
+        life_mean = float(life_data_d.mean())
+        exo_mean = float(exo_data_d.mean())
+
+    vert_lines.append(life_mean)
+    vert_lines.append(exo_mean)
+
+    if draw_HZ:
+        vert_lines.append(HZ_inner)
+        vert_lines.append(HZ_outer)
+
+    for i, line in enumerate(vert_lines):
+        if i == 0:
+            plt.axvline(x=line, color='r', linestyle='dashed', linewidth=2)
+        elif i == 1:
+            plt.axvline(x=line, color='r', linestyle='dotted', linewidth=2)
+        else:
+            plt.axvline(x=line, color='k', linewidth=2)
+
+    ax_textbox = plt.subplot(gs[1])
+    ax_textbox.axis('off')
+
+    if detected:
+        text_string_life = "#Detections LIFEsim: " + str(len(life_data_d))
+        text_string_exo = "#Detections EXOSIMS: " + str(len(exo_data_d))
+        textboxtext = text_string_life + "\n" + text_string_exo
+        ax_textbox.text(0.5, -0.1, textboxtext, bbox={'alpha': 0.5, 'pad': 10}, ha='center', va='top')
+    plt.savefig(result_path.joinpath(name + '.svg'))
+
+    plt.suptitle(name, fontsize=16)
+    plt.savefig(result_path.joinpath(name + '.svg'))
+
+    # Clear Figure so it does not interfere with other plots
+    plt.clf()
+
+    return 0
+
+
 def histogram_distribution_plot(life_data_d, exo_data_d, result_path, name, xlabel, xlim=None, ylim=None,
                                 detected=False, draw_HZ=False, HZ_inner=None, HZ_outer=None, log=False):
     """
@@ -1023,7 +1096,7 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
               "Hot Sub-Jovian", "Warm Sub-Jovian", "Cold Sub-Jovian",
               "Hot Jovian", "Warm Jovian", "Cold Jovian"]
     stypes = ["F", "G", "K", "M"]
-
+    """
     # Bar Plot
     bar_cat_plot(life_data, exo_data, ptypes, 'ptype', stypes, 'stype', save=True, result_path=results_path,
                  name="ptypes_stypes")
@@ -1068,31 +1141,31 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     ##################################
     # Detected Planets Histograms ####
     ##################################
-
+    """
     # Planet Radius
-    histogram_distribution_plot(life_data_det["radius_p"].astype(float), exo_data_det["radius_p"].astype(float),
+    kde_distr_plot(life_data_det["radius_p"].astype(float), exo_data_det["radius_p"].astype(float),
                                 results_path,
                                 "Distribution Planet Radius Detected Planets",
                                 r'Planet Radius [$R_{\oplus}$]', xlim=Rp_lim, detected=True)
-    histogram_distribution_plot(np.log10(life_data_det["radius_p"].astype(float)),
+    kde_distr_plot(np.log10(life_data_det["radius_p"].astype(float)),
                                 np.log10(exo_data_det["radius_p"].astype(float)), results_path,
                                 "log Distribution Planet Radius Detected Planets",
                                 r'$log_{10}\ R/R_{\oplus}$', xlim=Rp_lim_log, detected=True, log=True)
 
     # Planet Mass
-    histogram_distribution_plot(life_data_det["Mp"].astype(float), exo_data_det["Mp"].astype(float), results_path,
+    kde_distr_plot(life_data_det["Mp"].astype(float), exo_data_det["Mp"].astype(float), results_path,
                                 "Distribution Planet Mass Detected Planets",
                                 r'Planet Mass [$M_{\oplus}$]', xlim=Mp_lim, detected=True)
-    histogram_distribution_plot(np.log10(life_data_det["Mp"].astype(float)),
+    kde_distr_plot(np.log10(life_data_det["Mp"].astype(float)),
                                 np.log10(exo_data_det["Mp"].astype(float)), results_path,
                                 "log Distribution Planet Mass Detected Planets",
                                 r'$log_{10}\ M/M_{\oplus}$', xlim=Mp_lim_log, detected=True, log=True)
 
     # Planet orbital distance
-    histogram_distribution_plot(life_data_det["rp"].astype(float), exo_data_det["distance_p"].astype(float),
+    kde_distr_plot(life_data_det["rp"].astype(float), exo_data_det["distance_p"].astype(float),
                                 results_path, "Distribution Orbital Distance Detected Planets",
                                 "Orbital Distance [AU]", xlim=d_orbit_lim, detected=True)
-    histogram_distribution_plot(np.log10(life_data_det["rp"].astype(float)),
+    kde_distr_plot(np.log10(life_data_det["rp"].astype(float)),
                                 np.log10(exo_data_det["distance_p"].astype(float)), results_path,
                                 "log Distribution Orbital Distance Detected Planets",
                                 r'$log_{10}\ d_{orbit}$ [AU]', xlim=d_orbit_lim_log, detected=True, log=True)
@@ -1101,12 +1174,12 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     # values will naturally be scaled to that in the histogram
     hz_in = 0.75
     hz_out = 1.77
-    histogram_distribution_plot((life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])).astype(float),
+    kde_distr_plot((life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])).astype(float),
                                 (exo_data_det["distance_p"] / np.sqrt(exo_data_det["L_star"])).astype(float),
                                 results_path, "Distribution Orbital Distance Scaled Detected Planets",
                                 r'$d_{orbit}$ [AU] / $\sqrt{L_{star}}$', xlim=d_orbit_scaled_lim, detected=True,
                                 draw_HZ=True, HZ_inner=hz_in, HZ_outer=hz_out)
-    histogram_distribution_plot(np.log10((life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])).astype(float)),
+    kde_distr_plot(np.log10((life_data_det["rp"] / np.sqrt(life_data_det["l_sun"])).astype(float)),
                                 np.log10((exo_data_det["distance_p"] / np.sqrt(exo_data_det["L_star"])).astype(float)),
                                 results_path, "log Distribution Orbital Distance Scaled Detected Planets",
                                 r'$log_{10}\ (d_{orbit}$ [AU] / $\sqrt{L_{star}})$', xlim=d_orbit_scaled_lim_log,
@@ -1114,11 +1187,11 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
                                 log=True)
 
     # System Distance
-    histogram_distribution_plot(life_data_det["distance_s"].astype(float), exo_data_det["distance_s"].astype(float),
+    kde_distr_plot(life_data_det["distance_s"].astype(float), exo_data_det["distance_s"].astype(float),
                                 results_path,
                                 "Distribution System Distance Detected Planets",
                                 "System Distance [pc]", xlim=d_system_lim, detected=True)
-    histogram_distribution_plot(np.log10(life_data_det["distance_s"].astype(float)),
+    kde_distr_plot(np.log10(life_data_det["distance_s"].astype(float)),
                                 np.log10(exo_data_det["distance_s"].astype(float)), results_path,
                                 "log Distribution System Distance Detected Planets",
                                 r'$log_{10}\ d_{system}$ [pc]', xlim=d_system_lim_log, detected=True, log=True)
@@ -1126,7 +1199,7 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     ############################
     # Virtual Population Plots #
     ############################
-
+    """
     # Rp vs Mp
     kde_distribution_plot(life_data["radius_p"].astype(float), life_data["Mp"].astype(float), results_path,
                           "Sample Population Rp-Mp",
@@ -1271,7 +1344,7 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
                           results_path, "LIFEsim Detected d_orbit-d_s log-log",
                           r'$log_{10}\ d_{orbit}$ [AU]', r'$log_{10}\ d_{system}$ [pc]',
                           xlim=d_orbit_lim_log, ylim=d_system_lim_log, detected=True)
-
+    """
     return None
 
 
@@ -1706,7 +1779,7 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25)
     return None
 
 
-def analyse_one_dos(dos_pop_path, sim_names, results_path, N_bin=100):
+def analyse_one_dos(dos_pop_path, sim_names, results_path, indicator, N_bin=100):
     """
     Uses one of the Sims to analyse the depth of Search of it. Used by DoS_validation_tests.py
     :param sim_name: Name of the Sims to be analysed
@@ -1719,7 +1792,7 @@ def analyse_one_dos(dos_pop_path, sim_names, results_path, N_bin=100):
         dost_stress_test_life_data = pd.read_hdf(dos_pop_path.joinpath("sim_results/" + sim_name))
         DoS_stress_test_data_det = gd.data_only_det(dost_stress_test_life_data)
 
-        dos_analysis_naive(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, sim_name[:-5], N_bin)
+        dos_analysis_naive(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, indicator, N_bin)
 
     return None
 
@@ -1884,7 +1957,7 @@ if __name__ == '__main__':
     and so on. Feel free to add further functions and analysis tools in form of functions later on. 
     """
     # Plotting
-    # plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
     # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
@@ -1894,6 +1967,6 @@ if __name__ == '__main__':
     # dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=100)
 
     # Corner Plots
-    corner_plots(life_data, life_data_det, exo_data_det, results_path)
+    # corner_plots(life_data, life_data_det, exo_data_det, results_path)
 
     print("Analyse Data Finished!")

@@ -72,7 +72,8 @@ def run_dos_test(dos_pop_path, dos_results_path, n_processes, need_to_run_lifesi
 
         sim_names = list_of_sims[start_index:end_index]
 
-        process = mp.Process(target=analyse_data.analyse_one_dos, args=(dos_pop_path, sim_names, dos_results_path))
+        process = mp.Process(target=analyse_data.analyse_one_dos, args=(dos_pop_path, sim_names, dos_results_path,
+                                                                        "LIFEsim"))
         processes.append(process)
         start_index = end_index
 
@@ -98,4 +99,4 @@ if __name__ == '__main__':
     if not os.path.exists(dos_pop_path):
         os.makedirs(dos_pop_path)
 
-    run_dos_test(dos_pop_path, dos_results_path, 20, True)
+    run_dos_test(dos_pop_path, dos_results_path, 20, False)
