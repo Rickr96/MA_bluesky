@@ -30,7 +30,7 @@ only need to change it at one place, all limits are defined here globally.
 """
 
 Rp_lim = [0, 20]  # Planet Radius [R_E]
-Rp_lim_log = [0, 1.5]  # Planet Radius [R_E]
+Rp_lim_log = [-1, 1.5]  # Planet Radius [R_E]
 Mp_lim = [0, 100]  # Planet Mass [M_E]
 Mp_lim_log = [-1, 4]  # Planet Mass [M_E]
 d_orbit_lim = [0, 15]  # Orbital Distance [AU]
@@ -1614,7 +1614,7 @@ def contourf_single_plot(xi, yi, zi, results_path, title, xlabel, ylabel, DoS=Fa
     return None
 
 
-def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25):
+def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25, sim_name=None):
     """
     This function summarizes all the analysis, calculations and plot generation with respect to the Depth of Search
     Metric. This includes (currently):
@@ -1636,6 +1636,9 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25)
     - Discrete Depth of Search Plots
     - Continuous Depth of Search Plots
     """
+    # If no sim_name is given, just add empty strings to all the titles
+    if sim_name is None:
+        sim_name = ""
 
     # Setup: List of all the parameters, the labels and the limits
     if indicator == "LIFEsim":
@@ -1665,32 +1668,50 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25)
     ##################################################
 
     # Check if "Depth of Search Discrete" directory exists in results_path
-    dos_discrete_dir = results_path.joinpath("Depth_of_Search_Discrete_Naive")
-    if not os.path.exists(dos_discrete_dir):
+    dos_discrete_dir_temp = results_path.joinpath("Depth_of_Search_Discrete_Naive")
+    if not os.path.exists(dos_discrete_dir_temp):
         # Create the "Depth_of_Search" directory if it doesn't exist
-        os.makedirs(dos_discrete_dir)
+        os.makedirs(dos_discrete_dir_temp)
 
     # Check if "Depth of Search Continuous" directory exists in results_path
-    dos_cont_dir = results_path.joinpath("Depth_of_Search_Continuous_Naive")
-    if not os.path.exists(dos_cont_dir):
+    dos_cont_dir_temp = results_path.joinpath("Depth_of_Search_Continuous_Naive")
+    if not os.path.exists(dos_cont_dir_temp):
         # Create the "Depth_of_Search" directory if it doesn't exist
-        os.makedirs(dos_cont_dir)
+        os.makedirs(dos_cont_dir_temp)
 
     # Check if "Distributions Continuous" Directory exists in results_path
-    distr_cont_dir = results_path.joinpath("Continuous_Distribution")
-    if not os.path.exists(distr_cont_dir):
+    distr_cont_dir_temp = results_path.joinpath("Continuous_Distribution")
+    if not os.path.exists(distr_cont_dir_temp):
         # Create the "Depth_of_Search" directory if it doesn't exist
-        os.makedirs(distr_cont_dir)
+        os.makedirs(distr_cont_dir_temp)
 
     # Loop over all the parameters
     for i in range(len(parameters) - 1):
         for j in range(i + 1, len(parameters)):
             t1 = time.time()
+            # Make Directories for this Parameter Run
+            # Check if "Depth of Search Discrete" directory exists in results_path
+            dos_discrete_dir = dos_discrete_dir_temp.joinpath(parameters[i] + "-" + parameters[j])
+            if not os.path.exists(dos_discrete_dir):
+                # Create the "Depth_of_Search" directory if it doesn't exist
+                os.makedirs(dos_discrete_dir)
+
+            # Check if "Depth of Search Continuous" directory exists in results_path
+            dos_cont_dir = dos_cont_dir_temp.joinpath(parameters[i] + "-" + parameters[j])
+            if not os.path.exists(dos_cont_dir):
+                # Create the "Depth_of_Search" directory if it doesn't exist
+                os.makedirs(dos_cont_dir)
+
+            # Check if "Distributions Continuous" Directory exists in results_path
+            distr_cont_dir = distr_cont_dir_temp.joinpath(parameters[i] + "-" + parameters[j])
+            if not os.path.exists(distr_cont_dir):
+                # Create the "Depth_of_Search" directory if it doesn't exist
+                os.makedirs(distr_cont_dir)
+
             xlim, ylim, xlim_log, ylim_log = limits[i], limits[j], limits_log[i], limits_log[j]
 
             x_sample, y_sample = sample_data[parameters[i]], sample_data[parameters[j]]
             x_det, y_det = det_data[parameters[i]], det_data[parameters[j]]
-
             ###################################
             # Linear Depth of Search Analysis #
             ###################################
@@ -1700,17 +1721,20 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25)
                                                            n_bins=N_bin)
             dos = det_bins / sample_pop_bins
 
-            mesh_N = N_bin * 1j
+            mesh_N = 200j
+            adjust_bw = 0.5
             xi, yi = np.mgrid[xlim[0]:xlim[1]:mesh_N, ylim[0]:ylim[1]:mesh_N]
 
             kde_sample = gaussian_kde([x_sample, y_sample])
+            kde_sample.set_bandwidth(kde_sample.factor * adjust_bw)
             zi_sample = kde_sample(np.vstack([xi.flatten(), yi.flatten()]))
+
             kde_det = gaussian_kde([x_det, y_det])
+            kde_det.set_bandwidth(kde_det.factor * adjust_bw)
             zi_det = kde_det(np.vstack([xi.flatten(), yi.flatten()]))
 
             threshold = 1e-4
             zi_sample[zi_sample < threshold * zi_sample.max()] = 0
-            zi_det[zi_det < threshold * zi_det.max()] = 0
 
             with np.errstate(divide='ignore', invalid='ignore'):
                 dos_cont = np.true_divide(zi_det, zi_sample)
@@ -1718,20 +1742,20 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25)
                 dos_cont = np.nan_to_num(dos_cont)
 
             plot_heatmap(dos, xlim, labels[i], ylim, labels[j], dos_cont, dos_discrete_dir,
-                         "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j])
+                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j])
 
             contourf_single_plot(xi, yi, zi_sample, distr_cont_dir,
-                                 "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" + parameters[
-                                     j],
+                                 sim_name + "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" +
+                                 parameters[j],
                                  labels[i], labels[j])
 
             contourf_single_plot(xi, yi, zi_det, distr_cont_dir,
-                                 "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" + parameters[
-                                     j],
+                                 sim_name + "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" +
+                                 parameters[j],
                                  labels[i], labels[j])
 
             contourf_single_plot(xi, yi, dos_cont, dos_cont_dir,
-                                 "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j],
+                                 sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j],
                                  labels[i], labels[j], DoS=True)
 
             ################################
@@ -1749,13 +1773,15 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25)
             xi_log, yi_log = np.mgrid[xlim_log[0]:xlim_log[1]:mesh_N, ylim_log[0]:ylim_log[1]:mesh_N]
 
             kde_sample_log = gaussian_kde([np.log10(x_sample), np.log10(y_sample)])
+            kde_sample_log.set_bandwidth(kde_sample_log.factor * adjust_bw)
             zi_sample_log = kde_sample_log(np.vstack([xi_log.flatten(), yi_log.flatten()]))
+
             kde_det_log = gaussian_kde([np.log10(x_det), np.log10(y_det)])
+            kde_det_log.set_bandwidth(kde_det_log.factor * adjust_bw)
             zi_det_log = kde_det_log(np.vstack([xi_log.flatten(), yi_log.flatten()]))
 
             threshold_log = 1e-3
             zi_sample_log[zi_sample_log < threshold_log * zi_sample_log.max()] = 0
-            zi_det_log[zi_det_log < threshold_log * zi_det_log.max()] = 0
 
             with np.errstate(divide='ignore', invalid='ignore'):
                 dos_cont_log = np.true_divide(zi_det_log, zi_sample_log)
@@ -1763,20 +1789,21 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25)
                 dos_cont_log = np.nan_to_num(dos_cont_log)
 
             plot_heatmap(dos_log, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_cont_log, dos_discrete_dir,
-                         "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log")
+                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log")
 
             contourf_single_plot(xi_log, yi_log, zi_sample_log, distr_cont_dir,
-                                 "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" + parameters[
-                                     j] + "_log",
+                                 sim_name + "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" +
+                                 parameters[j] + "_log",
                                  labels_log[i], labels_log[j])
 
             contourf_single_plot(xi_log, yi_log, zi_det_log, distr_cont_dir,
-                                 "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" + parameters[
-                                     j] + "_log",
+                                 sim_name + "Distribution " + indicator + " Detections" + "_" + parameters[i] + "-" +
+                                 parameters[j] + "_log",
                                  labels_log[i], labels_log[j])
 
             contourf_single_plot(xi_log, yi_log, dos_cont_log, dos_cont_dir,
-                                 "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log",
+                                 sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j]
+                                 + "_log",
                                  labels_log[i], labels_log[j], DoS=True, logb=True)
 
     t2 = time.time()
@@ -1785,7 +1812,7 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25)
     return None
 
 
-def analyse_one_dos(dos_pop_path, sim_names, results_path, indicator, N_bin=100):
+def analyse_one_dos(dos_pop_path, sim_names, results_path, indicator, N_bin=50):
     """
     Uses one of the Sims to analyse the depth of Search of it. Used by DoS_validation_tests.py
     :param sim_name: Name of the Sims to be analysed
@@ -1794,18 +1821,18 @@ def analyse_one_dos(dos_pop_path, sim_names, results_path, indicator, N_bin=100)
     """
     for i in range(len(sim_names)):
         sim_name = sim_names[i]
-        save_path = results_path.joinpath(sim_name[:-5])
         dost_stress_test_life_data = pd.read_hdf(dos_pop_path.joinpath("sim_results/" + sim_name))
         DoS_stress_test_data_det = gd.data_only_det(dost_stress_test_life_data)
         # For Whatever reason P-Pop is inconsistent with its naming conventions
-        if 'p_orb' in dost_stress_test_life_data.columns:
-            dost_stress_test_life_data.rename(columns={'p_orb': 'rp'}, inplace=True)
-            DoS_stress_test_data_det.rename(columns={'p_orb': 'rp'}, inplace=True)
+        if 'rp' not in dost_stress_test_life_data.columns:
+            dost_stress_test_life_data.rename(columns={'semimajor_p': 'rp'}, inplace=True)
+            DoS_stress_test_data_det.rename(columns={'semimajor_p': 'rp'}, inplace=True)
         if 'mass_p' in dost_stress_test_life_data.columns:
             dost_stress_test_life_data.rename(columns={'mass_p': 'Mp'}, inplace=True)
             DoS_stress_test_data_det.rename(columns={'mass_p': 'Mp'}, inplace=True)
 
-        dos_analysis_naive(dost_stress_test_life_data, DoS_stress_test_data_det, save_path, indicator, N_bin)
+        dos_analysis_naive(dost_stress_test_life_data, DoS_stress_test_data_det, results_path, indicator, N_bin,
+                           sim_name=sim_name)
 
     return None
 
@@ -1943,7 +1970,7 @@ if __name__ == '__main__':
     life_results_path = current_dir.joinpath('Analysis/Output/LIFEsim/demo1.hdf5')
 
     # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
-    run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
+    # run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
 
     """
     After Sims were run and saved (whether it happend during the same run or the results are already saved because the Sims
@@ -1970,16 +1997,16 @@ if __name__ == '__main__':
     and so on. Feel free to add further functions and analysis tools in form of functions later on. 
     """
     # Plotting
-    plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    # plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
-    radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Depth of Search Analysis
-    dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=100)
-    dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=100)
+    #dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=50)
+    #dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=50)
 
     # Corner Plots
-    corner_plots(life_data, life_data_det, exo_data_det, results_path)
+    # corner_plots(life_data, life_data_det, exo_data_det, results_path)
 
     print("Analyse Data Finished!")
