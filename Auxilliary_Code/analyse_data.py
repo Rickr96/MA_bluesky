@@ -1943,7 +1943,7 @@ if __name__ == '__main__':
     life_results_path = current_dir.joinpath('Analysis/Output/LIFEsim/demo1.hdf5')
 
     # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
-    # run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
+    run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
 
     """
     After Sims were run and saved (whether it happend during the same run or the results are already saved because the Sims
@@ -1973,13 +1973,13 @@ if __name__ == '__main__':
     plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
-    # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Depth of Search Analysis
-    # dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=100)
-    # dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=100)
+    dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=100)
+    dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=100)
 
     # Corner Plots
-    # corner_plots(life_data, life_data_det, exo_data_det, results_path)
+    corner_plots(life_data, life_data_det, exo_data_det, results_path)
 
     print("Analyse Data Finished!")
