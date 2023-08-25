@@ -11,7 +11,8 @@ import scipy as sp
 import time
 import subprocess
 from pathlib import Path
-
+import multiprocessing as mp
+from astropy.units import Quantity
 
 # Definition Constants
 sigma = 5.670367 * 10 ** (-8)  # Stefan-Boltzmann constant in W m^-2 K^-4
@@ -20,6 +21,8 @@ R_sun = 6.957 * 10 ** 8  # Solar radius in m
 M_sun = 1.989 * 10 ** 30  # Solar mass in kg
 R_Earth = 6371 * 10 ** 3  # Earth radius in m
 Flux_E = 1361.  # W m-2(theoretically = 1373 but Jens used 1361) Solar constant (= incident Flux on Earth)
+
+
 # from (https://www.sciencedirect.com/topics/earth-and-planetary-sciences/solar-flux)
 
 
@@ -247,7 +250,42 @@ def planet_hist(R_p, M_p, name, title):
     plt.show()
 
 
-def pop_exo_to_life(pickle_path, star_cat_path, stellar_table_path):
+def filter_exo_res(res, det_status):
+    """
+    Function that shall filter the ExoSim results based on the detection status of the planets. det_status shows for
+    what should be filtered.
+    Note: for ppop_exo_to_life the DRM is not required, thus we omitt that the DRM is filtered as well and just
+    return a filtered res[systems]
+    :param res: results from ExoSim
+    :param det_status: string that shows what should be filtered: 0 = only non-detected planets, 1 = only detected
+    planets, -1 = characterized planets
+    :return:
+    """
+    res_filtered = dict()
+    filtered_systems = dict()
+    p_index_storage = []
+    for row in res["DRM"]:
+        for ix, det in enumerate(row["det_status"]):
+            if det == det_status:
+                p_index_storage.append(row["plan_inds"][ix])
+
+    for key in res["systems"].keys():
+        if key != 'MsTrue' and key != 'MsEst':
+            values = [
+                res["systems"][key][i].value if isinstance(res["systems"][key][i], Quantity) else res["systems"][key][i]
+                for i in p_index_storage]
+            filtered_systems[key] = np.array(values) * res["systems"][key].unit if isinstance(res["systems"][key][0], Quantity) \
+                else np.array(values)
+        else:
+            filtered_systems[key] = res["systems"][key]
+    res_filtered["systems"] = filtered_systems
+    res_filtered["DRM"] = res["DRM"]
+    res_filtered["seed"] = res["seed"]
+
+    return res_filtered
+
+
+def pop_exo_to_life(pickle_path, star_cat_path, stellar_table_path, mode='demo1'):
     """
     Function that shall convert the ExoSim population to the LIFEsim format. The names of the columns are
     named after the name of the data-catalogue class in LIFEsim. The columns are:
@@ -309,6 +347,21 @@ def pop_exo_to_life(pickle_path, star_cat_path, stellar_table_path):
     for counter, f in enumerate(pklfiles):
         with open(f, "rb") as g:
             res = pickle.load(g, encoding="latin1")
+        # Filter res based on mode
+        if mode == 'all' or mode == 'demo1':
+            print("Passing all planets to LIFEsim")
+        elif mode == 'det':
+            # Only feed the detected planets to LIFEsim
+            res = filter_exo_res(res, 1)
+            print("Passing only detected planets to LIFEsim")
+        elif mode == 'non-det':
+            res = filter_exo_res(res, 0)
+            print("Passing only non-detected planets to LIFEsim")
+        elif mode == 'char':
+            res = filter_exo_res(res, -1)
+            print("Passing only characterized planets to LIFEsim")
+        else:
+            raise ValueError("Mode not recognized")
         # Planet Index
         pindex = list(np.arange(pindex_max, pindex_max + len(res["systems"]['plan2star'])))
         pindex_max = pindex[-1] + 1
@@ -485,7 +538,7 @@ def pop_exo_to_life(pickle_path, star_cat_path, stellar_table_path):
     return df_life
 
 
-def import_data(exo_outpath,life_outpath, life_file_name, star_cat_path):
+def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
     """
     Imports the data from the LIFEsim and EXOSIM output files
     :param exo_outpath: exosim output path
@@ -654,20 +707,42 @@ def run_life_single(pythonpath, script_path, dos_pop_path, population_files, res
     return None
 
 
-def __main__(ppop_path, life_results_path):
+def __main__(ppop_path_gd=None, life_results_path_gd=None, modes=None):
     # Paths
     current_dir = Path(__file__).parent.resolve()
     exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS/")
     stellar_table_path = current_dir.joinpath("Analysis/Populations/LIFEsim_StellarCat_Table.csv")
     stellar_cat_path = current_dir.joinpath("Analysis/Populations/TargetList_exosims.csv")
     lifesim_path = current_dir.parent.joinpath("LIFEsim-Rick_Branch")
-
+    print(modes)
     # Translate Exosim Data to LIFEsim Data and safe to LIFEsim Path
-    exo_trans = pop_exo_to_life(exo_output_path, stellar_cat_path, stellar_table_path)
-    exosim_cat_path = lifesim_path.joinpath("exosim_cat/exosim_univ.hdf5")
-    exo_trans.to_hdf(exosim_cat_path, key='catalog')
+    if modes is None:
+        # 'demo1' was the old name of the simulated universe, thus we just fill modes with that to go back to the old
+        # behavior before the modes were introduced
+        modes = ['demo1']
+    processes = []
 
-    run_life(pythonpath=str(lifesim_path),
-             script_path=current_dir.joinpath("LIFEsim_ExoSim_Inputs.py"),
-             ppop_path=ppop_path,
-             life_results_path=life_results_path)
+    for mode in modes:
+        print(mode)
+        exosim_cat_path = lifesim_path.joinpath("exosim_cat/exosim_univ_" + mode + ".hdf5")
+        exo_trans = pop_exo_to_life(exo_output_path, stellar_cat_path, stellar_table_path, mode)
+        exo_trans.to_hdf(exosim_cat_path, key='catalog')
+        if life_results_path_gd is None:
+            life_results_path = current_dir.joinpath(f"Analysis/Output/LIFEsim/{mode}.hdf5")
+        else:
+            life_results_path = life_results_path_gd
+        if ppop_path_gd is None:
+            ppop_path = exosim_cat_path
+        else:
+            ppop_path = ppop_path_gd
+
+        p = mp.Process(target=run_life, args=(str(lifesim_path),
+                                              current_dir.joinpath("LIFEsim_ExoSim_Inputs.py"),
+                                              ppop_path,
+                                              life_results_path))
+        processes.append(p)
+        p.start()
+
+    for process in processes:
+        process.join()
+

@@ -421,17 +421,8 @@ def add_HZ_to_exo(dfexo, dflife):
     print("Started adding habitability data to DF of length: " + str(len(dfexo)))
     t1 = time.time()
 
-    # Add habitable zone information to the EXOsim dataframe
-    # Create a mapping dictionary for sname and corresponding HZ information
-    hz_mapping = {}
-    for _, row in dflife.iterrows():
-        sname = row['name_s']
-        hz_in = row['hz_in']
-        hz_out = row['hz_out']
-        hz_mapping[sname] = (hz_in, hz_out)
-
-    # Update dfexo with HZ information using the mapping dictionary
-    dfexo['hz_in'], dfexo['hz_out'] = zip(*dfexo['sname'].map(hz_mapping.get))
+    # Merge dfexo with hz_in and hz_out columns from dflife
+    dfexo = dfexo.merge(dflife[['name_s', 'hz_in', 'hz_out']], left_on='sname', right_on='name_s', how='left')
 
     # Add habitability boolean based on HZ data and orbit distance
     dfexo['habitable'] = (dfexo['distance_p'] > dfexo['hz_in']) & (dfexo['semimajor_p'] < dfexo['hz_out'])
@@ -1063,11 +1054,11 @@ def kde_distribution_plot(data_d1, data_d2, result_path, name, xlabel, ylabel, x
     return 0
 
 
-def run_it_and_save_it(results_path, ppop_path, life_results_path):
+def run_it_and_save_it(results_path, modes=None):
     # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
     rexo.__main__()
     # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
-    gd.__main__(ppop_path=ppop_path, life_results_path=life_results_path)
+    gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
 
     current_dir = Path(__file__).parent.resolve()
     exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
@@ -1075,18 +1066,22 @@ def run_it_and_save_it(results_path, ppop_path, life_results_path):
     stellar_cat_path = current_dir.joinpath("Analysis/Populations/TargetList_exosims.csv")
 
     # Import DataFrames
-    life_data_nop, exo_data_nop = gd.import_data(exo_output_path, life_output_path, "demo1.hdf5", stellar_cat_path)
+    if modes is None:
+        modes = ["demo1"]
+    for i in range(len(modes)):
+        life_data_nop, exo_data_nop = gd.import_data(exo_output_path, life_output_path, modes[i] + ".hdf5",
+                                                     stellar_cat_path)
 
-    # Add Planet Category
-    life_data = add_ptype_to_df(life_data_nop, "Kop2015")
-    exo_data_noHZ = add_ptype_to_df(exo_data_nop, "Kop2015")
+        # Add Planet Category
+        life_data = add_ptype_to_df(life_data_nop, "Kop2015")
+        exo_data_noHZ = add_ptype_to_df(exo_data_nop, "Kop2015")
 
-    # Add HZ of LIFesim to EXOsim Data
-    exo_data = add_HZ_to_exo(exo_data_noHZ, life_data)
+        # Add HZ of LIFesim to EXOsim Data
+        exo_data = add_HZ_to_exo(exo_data_noHZ, life_data)
 
-    # Save DataFrames
-    life_data.to_csv(results_path.joinpath("life_data.csv"))
-    exo_data.to_csv(results_path.joinpath("exo_data.csv"))
+        # Save DataFrames
+        life_data.to_csv(results_path.joinpath(modes[i] + "_life_data.csv"))
+        exo_data.to_csv(results_path.joinpath(modes[i] + "_exo_data.csv"))
 
     return None
 
@@ -1554,7 +1549,8 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title
     # Create the heatmap
     # For some reason it was flipped, by transposing you can fix it
     heatmap = plt.imshow(data.T, cmap=cmap, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect='auto')
-    xi, yi = np.meshgrid(np.linspace(xlim[0], xlim[1], data.shape[0]), np.linspace(ylim[0], ylim[1], data.shape[1]))
+    xi, yi = np.meshgrid(np.linspace(xlim[0], xlim[1], int(np.sqrt(dos_cont.shape[0]))),
+                         np.linspace(ylim[0], ylim[1], int(np.sqrt(dos_cont.shape[0]))))
     contour_levels = np.linspace(0, data.max(), 10)
     contour = plt.contour(xi, yi, dos_cont.reshape(yi.shape).T, levels=contour_levels, colors='black', linewidths=0.5)
 
@@ -1959,27 +1955,10 @@ def DoS_corner(x, y, limit=None, **kwargs):
     return None
 
 
-if __name__ == '__main__':
-    """
-    Pre-Amble Starts here with defining paths, and running the two Sims via "run_it_and_save_it"
-    """
-    current_dir = Path(__file__).parent.resolve()
-    parent_dir = current_dir.parent.resolve()
-    results_path = parent_dir.resolve().joinpath("Results/")
-    ppop_path = parent_dir.joinpath('LIFEsim-Rick_Branch/exosim_cat/exosim_univ.hdf5')
-    life_results_path = current_dir.joinpath('Analysis/Output/LIFEsim/demo1.hdf5')
-
-    # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
-    # run_it_and_save_it(results_path, ppop_path=ppop_path, life_results_path=life_results_path)
-
-    """
-    After Sims were run and saved (whether it happend during the same run or the results are already saved because the Sims
-    were run earlier) we go into importating DataFrames and applying some masks to them to differentiate between detected
-    planets, underlying population sample, Earth-Likes and so on
-    """
+def one_entire_mode(results_path, mode):
     # Import DataFrames
-    exo_data, life_data = pd.read_csv(results_path.joinpath("exo_data.csv")), pd.read_csv(
-        results_path.joinpath("life_data.csv"))
+    exo_data, life_data = pd.read_csv(results_path.joinpath(mode + "_exo_data.csv")), pd.read_csv(
+        results_path.joinpath(mode + "_life_data.csv"))
     # Adjust Exo Data
     exo_data_det = gd.data_only_det(exo_data)
     # Adjust LIFE Data
@@ -1997,16 +1976,41 @@ if __name__ == '__main__':
     and so on. Feel free to add further functions and analysis tools in form of functions later on. 
     """
     # Plotting
-    # plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
-    # radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
 
     # Depth of Search Analysis
-    #dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=50)
-    #dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=50)
+    dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=50)
+    dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=50)
 
     # Corner Plots
-    # corner_plots(life_data, life_data_det, exo_data_det, results_path)
+    corner_plots(life_data, life_data_det, exo_data_det, results_path)
 
-    print("Analyse Data Finished!")
+    print("Analyse Data of mode: ", mode, " Finished!")
+    return None
+
+
+if __name__ == '__main__':
+    """
+    Pre-Amble Starts here with defining paths, and running the two Sims via "run_it_and_save_it"
+    """
+    # Define the modes you want to run, demo1 and 'all' should be equivalent, 'demo1' is simply for backwards
+    # compatibility
+    modes = ['det', 'non-det', 'char', 'all']
+
+    current_dir = Path(__file__).parent.resolve()
+    parent_dir = current_dir.parent.resolve()
+    results_path = parent_dir.resolve().joinpath("Results/")
+
+    # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
+    run_it_and_save_it(results_path, modes=modes)
+
+    """
+    After Sims were run and saved (whether it happened during the same run or the results are already saved because the Sims
+    were run earlier) we go into importing DataFrames and applying some masks to them to differentiate between detected
+    planets, underlying population sample, Earth-Likes and so on
+    """
+    for mode in modes:
+        one_entire_mode(results_path, mode)
