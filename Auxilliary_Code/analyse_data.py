@@ -1529,7 +1529,7 @@ def bin_parameter_space(data, x_param, xlim, y_param, ylim, n_bins):
     return twod_param_p, twod_paramspace
 
 
-def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title):
+def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title, vmin=None, vmax=None):
     """
     Generates and displays a heatmap based on input data and parameters.
 
@@ -1542,7 +1542,8 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title
     dos_cont (array-like): One-dimensional array of depth of search values for the contour lines.
     results_path (Path or str): Path where the SVG file will be saved.
     title (str): Title of the heatmap.
-
+    vmin, vmax gives range of heatmap values. Might be benefitial for DoS comparison, as the color them remains the same
+    and makes comparisons easier.
     Returns: None
     """
     # Fill NaN values with 0
@@ -1557,7 +1558,8 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title
 
     # Create the heatmap
     # For some reason it was flipped, by transposing you can fix it
-    heatmap = plt.imshow(data.T, cmap=cmap, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect='auto')
+    heatmap = plt.imshow(data.T, cmap=cmap, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect='auto',
+                         vmin=vmin, vmax=vmax)
     xi, yi = np.meshgrid(np.linspace(xlim[0], xlim[1], int(np.sqrt(dos_cont.shape[0]))),
                          np.linspace(ylim[0], ylim[1], int(np.sqrt(dos_cont.shape[0]))))
     contour_levels = np.linspace(0, data.max(), 10)
