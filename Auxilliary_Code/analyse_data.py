@@ -420,12 +420,20 @@ def add_HZ_to_exo(dfexo, dflife):
     """
     print("Started adding habitability data to DF of length: " + str(len(dfexo)))
     t1 = time.time()
+    unique_snames_exo = dfexo['sname'].unique()
+    unique_snames_life = dflife['name_s'].unique()
 
-    # Merge dfexo with hz_in and hz_out columns from dflife
-    dfexo = dfexo.merge(dflife[['name_s', 'hz_in', 'hz_out']], left_on='sname', right_on='name_s', how='left')
+    for sname in unique_snames_exo:
+        if sname in unique_snames_life:
+            hz_in = dflife.loc[dflife['name_s'] == sname, 'hz_in'].iloc[0]
+            hz_out = dflife.loc[dflife['name_s'] == sname, 'hz_out'].iloc[0]
+
+            # Update dfexo with the HZ-in and HZ-out values for the current 'sname'
+            dfexo.loc[dfexo['sname'] == sname, 'hz_in'] = hz_in
+            dfexo.loc[dfexo['sname'] == sname, 'hz_out'] = hz_out
 
     # Add habitability boolean based on HZ data and orbit distance
-    dfexo['habitable'] = (dfexo['distance_p'] > dfexo['hz_in']) & (dfexo['semimajor_p'] < dfexo['hz_out'])
+    dfexo['habitable'] = (dfexo['semimajor_p'] > dfexo['hz_in']) & (dfexo['semimajor_p'] < dfexo['hz_out'])
 
     t2 = time.time()
     print("Finished adding habitability data. It took " + str(t2 - t1) + " seconds.")
@@ -696,17 +704,17 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
             ax1 = ax2.twinx()
             color1 = 'mediumblue'
             label_group_point(ax1, subdic, color1, subdic_err)
-            ax1.set_ylabel('Detection Time [h]', fontsize=22)
+            ax1.set_ylabel('Integration Time [h]', fontsize=22)
 
             # Creating Manual Legend
             handles, labels = plt.gca().get_legend_handles_labels()
-            patch1 = mpatches.Patch(color=color1, label='SNR')
-            patch2 = mpatches.Patch(color=color2, label='Detections')
+            patch1 = mpatches.Patch(color=color1, label='Integration Time')
+            patch2 = mpatches.Patch(color=color2, label='# Detections')
             handles.extend([patch1, patch2])
 
             plt.legend(handles=handles, fontsize=22)
 
-            plt.title("SNR and Detections of LIFEsim and EXOsim", fontsize=22)
+            plt.title("Integration Time and Detections of LIFEsim and EXOsim", fontsize=22)
             fig.subplots_adjust(bottom=0.3)
             if save:
                 savestring = result_path.joinpath(name + ".pdf")
@@ -1075,9 +1083,10 @@ def run_it_and_save_it(results_path, modes=None):
         # Add Planet Category
         life_data = add_ptype_to_df(life_data_nop, "Kop2015")
         exo_data_noHZ = add_ptype_to_df(exo_data_nop, "Kop2015")
-
+        print("Length before adding HZ:", len(exo_data_noHZ))
         # Add HZ of LIFesim to EXOsim Data
         exo_data = add_HZ_to_exo(exo_data_noHZ, life_data)
+        print("Length After adding HZ:", len(exo_data))
 
         # Save DataFrames
         life_data.to_csv(results_path.joinpath(modes[i] + "_life_data.csv"))
@@ -1955,10 +1964,22 @@ def DoS_corner(x, y, limit=None, **kwargs):
     return None
 
 
-def one_entire_mode(results_path, mode):
+def plot_one_entire_mode(results_path, mode):
+    """
+    Runs through all the analysis for one mode
+    :param results_path: Path stating where results shall be saved to
+    :param mode: gives which mode shall be run
+    :return:
+    """
     # Import DataFrames
     exo_data, life_data = pd.read_csv(results_path.joinpath(mode + "_exo_data.csv")), pd.read_csv(
         results_path.joinpath(mode + "_life_data.csv"))
+    results_path_mode = results_path.joinpath(mode)
+    # Check for folder, if it does not already exist, create it
+    if not os.path.exists(results_path_mode):
+        os.makedirs(results_path_mode)
+
+    print(results_path, results_path_mode)
     # Adjust Exo Data
     exo_data_det = gd.data_only_det(exo_data)
     # Adjust LIFE Data
@@ -1976,17 +1997,17 @@ def one_entire_mode(results_path, mode):
     and so on. Feel free to add further functions and analysis tools in form of functions later on. 
     """
     # Plotting
-    plots(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    plots(life_data, exo_data, life_data_det, exo_data_det, results_path_mode)
 
     # Checking Mass-Radius Distribution via the Forecaster Git Code from J.Chen and D.Kipping 2016
-    radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path)
+    radius_mass_check(life_data, exo_data, life_data_det, exo_data_det, results_path_mode)
 
     # Depth of Search Analysis
-    dos_analysis_naive(life_data, life_data_det, results_path, "LIFEsim", N_bin=50)
-    dos_analysis_naive(exo_data, exo_data_det, results_path, "EXOSIMS", N_bin=50)
+    dos_analysis_naive(life_data, life_data_det, results_path_mode, "LIFEsim", N_bin=50)
+    dos_analysis_naive(exo_data, exo_data_det, results_path_mode, "EXOSIMS", N_bin=50)
 
     # Corner Plots
-    corner_plots(life_data, life_data_det, exo_data_det, results_path)
+    corner_plots(life_data, life_data_det, exo_data_det, results_path_mode)
 
     print("Analyse Data of mode: ", mode, " Finished!")
     return None
@@ -2013,4 +2034,4 @@ if __name__ == '__main__':
     planets, underlying population sample, Earth-Likes and so on
     """
     for mode in modes:
-        one_entire_mode(results_path, mode)
+        plot_one_entire_mode(results_path, mode)
