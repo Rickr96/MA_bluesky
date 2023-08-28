@@ -1562,9 +1562,6 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title
                          vmin=vmin, vmax=vmax)
     xi, yi = np.meshgrid(np.linspace(xlim[0], xlim[1], int(np.sqrt(dos_cont.shape[0]))),
                          np.linspace(ylim[0], ylim[1], int(np.sqrt(dos_cont.shape[0]))))
-    contour_levels = np.linspace(0, data.max(), 10)
-    contour = plt.contour(xi, yi, dos_cont.reshape(yi.shape).T, levels=contour_levels, colors='black', linewidths=0.5)
-
     # Add a colorbar
     cbar = plt.colorbar(heatmap)
     cbar.set_label('Depth of Search', rotation=270, labelpad=15)
@@ -1749,7 +1746,8 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                 dos_cont = np.nan_to_num(dos_cont)
 
             plot_heatmap(dos, xlim, labels[i], ylim, labels[j], dos_cont, dos_discrete_dir,
-                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j])
+                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j],
+                         vmin=0, vmax=15)
 
             contourf_single_plot(xi, yi, zi_sample, distr_cont_dir,
                                  sim_name + "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" +
@@ -1796,7 +1794,8 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                 dos_cont_log = np.nan_to_num(dos_cont_log)
 
             plot_heatmap(dos_log, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_cont_log, dos_discrete_dir,
-                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log")
+                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log",
+                         vmin=0, vmax=15)
 
             contourf_single_plot(xi_log, yi_log, zi_sample_log, distr_cont_dir,
                                  sim_name + "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" +
