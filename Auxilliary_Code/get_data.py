@@ -265,6 +265,8 @@ def filter_exo_res(res, det_status):
     filtered_systems = dict()
     p_index_storage = []
     for row in res["DRM"]:
+        if "det_status" not in row.keys():
+            continue
         for ix, det in enumerate(row["det_status"]):
             if det == det_status:
                 p_index_storage.append(row["plan_inds"][ix])
@@ -589,6 +591,8 @@ def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
         det_SNR, char_SNR, radius_p, semi_major, Ageo, ecc, Mp, FP = [], [], [], [], [], [], [], []
         star_name, stypes, Ds, L = [], [], [], []
         for row in res["DRM"]:
+            if "char_status" in row.keys():
+                row["det_status"] = (-1) * row["char_status"]
             for ix, det in enumerate(row["det_status"]):
                 # Stellar Parameters
                 starname = row["star_name"]
@@ -609,28 +613,61 @@ def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
                 dets.append(det)
 
                 # Working Angle
-                WAs.append(row["det_params"]["WA"][ix].to("arcsec").value)
+                if "det_params" in row.keys():
+                    WAs.append(row["det_params"]["WA"][ix].to("arcsec").value)
+                elif "char_params" in row.keys():
+                    WAs.append(row["char_params"]["WA"][ix].to("arcsec").value)
 
                 # Magnitude planet vs star ratio
-                dMag.append(row["det_params"]["dMag"][ix])
+                if "det_params" in row.keys():
+                    dMag.append(row["det_params"]["dMag"][ix])
+                elif "char_params" in row.keys():
+                    dMag.append(row["char_params"]["dMag"][ix])
 
                 # Distance planet to host star
-                distance_p = row["det_params"]["d"][ix].to("AU").value
+                if "det_params" in row.keys():
+                    distance_p = row["det_params"]["d"][ix].to("AU").value
+                elif "char_params" in row.keys():
+                    distance_p = row["char_params"]["d"][ix].to("AU").value
                 rs.append(distance_p)
 
                 # Exozodi brightness
-                fEZ.append(row["det_params"]["fEZ"][ix].value)
+                if "det_params" in row.keys():
+                    fEZ.append(row["det_params"]["fEZ"][ix].value)
+                elif "char_params" in row.keys():
+                    fEZ.append(row["char_params"]["fEZ"][ix].value)
                 # Zodiacal brightness
-                fZs.append(row["det_fZ"].value * len(np.where(row["det_status"] == 1)))
+                if "det_params" in row.keys():
+                    fZs.append(row["det_fZ"].value * len(np.where(row["det_status"] == 1)))
+                elif "char_params" in row.keys():
+                    fZs.append(row["char_fZ"].value * len(np.where(row["det_status"] == 1)))
 
                 # Detection and Characterization time
-                dettime.append(row["det_time"].value)
-                chartime.append(row["char_time"].value)
-                tottime.append(row["det_time"].value + row["char_time"].value)
+                if "det_time" in row.keys():
+                    det_time = row["det_time"].value
+                else:
+                    det_time = 0
+
+                if "char_time" in row.keys():
+                    char_time = row["char_time"].value
+                else:
+                    char_time = 0
+                dettime.append(det_time)
+                chartime.append(char_time)
+                tottime.append(det_time + char_time)
 
                 # Detection and characterization SNR
-                det_SNR.append(row["det_SNR"][ix])
-                char_SNR.append(row["char_SNR"][ix])
+                if "det_SNR" in row.keys():
+                    detSNR = row["det_SNR"][ix]
+                else:
+                    detSNR = 0
+
+                if "char_SNR" in row.keys():
+                    charSNR = row["char_SNR"][ix]
+                else:
+                    charSNR = 0
+                det_SNR.append(detSNR)
+                char_SNR.append(charSNR)
 
                 # Planet Radius, Semi-major axis, Geometric Albedo, Eccentricity, Mass
                 radius_p.append(res["systems"]["Rp"][row["plan_inds"][ix]] / u.R_earth)
