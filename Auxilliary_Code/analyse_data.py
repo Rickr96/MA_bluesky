@@ -1069,8 +1069,8 @@ def run_it_and_save_it(results_path, modes=None):
     gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
 
     current_dir = Path(__file__).parent.resolve()
-    exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS/N100")
-    life_output_path = current_dir.joinpath("Analysis/Output/LIFEsim/N100")
+    exo_output_path = current_dir.joinpath("Analysis/Output/N100/EXOSIMS")
+    life_output_path = current_dir.joinpath("Analysis/Output/N100/LIFEsim")
     if not os.path.exists(life_output_path):
         os.makedirs(life_output_path)
     stellar_cat_path = current_dir.joinpath("Analysis/Populations/TargetList_exosims.csv")
