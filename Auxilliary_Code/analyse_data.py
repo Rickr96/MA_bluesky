@@ -2068,7 +2068,7 @@ if __name__ == '__main__':
 
     current_dir = Path(__file__).parent.resolve()
     parent_dir = current_dir.parent.resolve()
-    results_path = parent_dir.resolve().joinpath("Results/")
+    results_path = parent_dir.resolve().joinpath("ResultsN100/")
 
     # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
     run_it_and_save_it(results_path, modes=modes)
