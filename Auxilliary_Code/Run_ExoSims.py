@@ -147,6 +147,8 @@ def __main__():
     # config Rick
     current_dir = Path(__file__).parent.resolve()
     scriptfile = current_dir.joinpath("Running_Sims/inputconfig.json")
-    outpath = current_dir.joinpath("Analysis/Output")
+    outpath = current_dir.joinpath("Analysis/Output/N100")
+    if not os.path.exists(outpath):
+        os.makedirs(outpath)
     sim = EXOSIMS.MissionSim.MissionSim(scriptfile)
     exosim_run(sim, outpath, N_sim=100, nprocess=1)
