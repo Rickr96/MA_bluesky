@@ -1069,8 +1069,8 @@ def run_it_and_save_it(results_path, modes=None):
     gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
 
     current_dir = Path(__file__).parent.resolve()
-    exo_output_path = current_dir.joinpath("Analysis/Output/N100/EXOSIMS")
-    life_output_path = current_dir.joinpath("Analysis/Output/N100/LIFEsim")
+    exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
+    life_output_path = current_dir.joinpath("Analysis/Output/LIFEsim")
     if not os.path.exists(life_output_path):
         os.makedirs(life_output_path)
     stellar_cat_path = current_dir.joinpath("Analysis/Populations/TargetList_exosims.csv")
@@ -2070,7 +2070,7 @@ if __name__ == '__main__':
 
     current_dir = Path(__file__).parent.resolve()
     parent_dir = current_dir.parent.resolve()
-    results_path = parent_dir.resolve().joinpath("ResultsN100/")
+    results_path = parent_dir.resolve().joinpath("Results/")
 
     # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
     run_it_and_save_it(results_path, modes=modes)

@@ -113,18 +113,20 @@ def run_one(sim, outpath, genNewPlanets=True, rewindPlanets=True):
     return 0
 
 
-def exosim_run(sim, outpath, N_sim=1, nprocess=1):
+def exosim_run(sim, outpath, N_sim=1, nprocess=1, clear=False):
     """
     Runs the exosims simulation
     :param sim: EXOSIMS.MissionSim.MissionSim(scriptfile)
     :param N_sim: Number of simulations to run
     :param nprocess: Number of processes to run in parallel
+    :param clear: Boolean saying whether or not the previous results shall be cleared from the output path
     :return: Saves the results in a pickle file to the outpath given in run_one
     """
-    # Clear the output directory of any previous runs
-    file_list = glob.glob(os.path.join(outpath.joinpath("EXOSIMS"), "*.pkl"))
-    for file_path in file_list:
-        os.remove(file_path)
+    if clear:
+        # Clear the output directory of any previous runs
+        file_list = glob.glob(os.path.join(outpath.joinpath("EXOSIMS"), "*.pkl"))
+        for file_path in file_list:
+            os.remove(file_path)
 
     if nprocess > 1:
         t1 = time.time()
@@ -147,8 +149,8 @@ def __main__():
     # config Rick
     current_dir = Path(__file__).parent.resolve()
     scriptfile = current_dir.joinpath("Running_Sims/inputconfig.json")
-    outpath = current_dir.joinpath("Analysis/Output/N100")
+    outpath = current_dir.joinpath("Analysis/Output")
     if not os.path.exists(outpath):
         os.makedirs(outpath)
     sim = EXOSIMS.MissionSim.MissionSim(scriptfile)
-    exosim_run(sim, outpath, N_sim=100, nprocess=1)
+    exosim_run(sim, outpath, N_sim=500, nprocess=1)
