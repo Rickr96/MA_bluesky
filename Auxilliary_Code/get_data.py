@@ -403,7 +403,6 @@ def pop_exo_to_life(pickle_path, star_cat_path, stellar_table_path, mode='demo1'
             #############################
             name_s.append(sname)
 
-            # TODO: Currently using the true stellar mass, not the estimated mass MsEst !!
             M = star_cat.loc[star_cat['Name'] == sname, 'MsTrue'].iloc[0]
 
             # Stellar Distance
@@ -451,8 +450,7 @@ def pop_exo_to_life(pickle_path, star_cat_path, stellar_table_path, mode='demo1'
         Abond = 2 / 3 * res["systems"]['p']
 
         # AgeomVIS and AgeomMIR from Ageo general
-        # TODO: Currently we use the same weird prefactors as J.Kammerer used in P-Pop in his random.rand() sampling of
-        # the geometric albedo. Need to talk to Felix whether or not this is a good idea.
+        # Same weird prefactors as J.Kammerer used in P-Pop in his random.rand() sampling of the geometric albedo.
         AgeomVIS = 0.6 * res["systems"]['p']
         AgeomMIR = 0.1 * res["systems"]['p']
 
@@ -608,6 +606,8 @@ def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
 
                 # Planet Index
                 pinds.append(row["plan_inds"][ix])
+                print(pinds)
+                print(pinds[-1])
 
                 # Detected or not 1 = detected -- full spectrum, 0 = not detected, -1 = partial spectrum
                 dets.append(det)

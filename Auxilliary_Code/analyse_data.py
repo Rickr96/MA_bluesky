@@ -1524,7 +1524,6 @@ def bin_parameter_space(data, x_param, xlim, y_param, ylim, n_bins):
     x_linspace, y_linspace = np.linspace(xlim[0], xlim[1], n_bins), np.linspace(ylim[0], ylim[1], n_bins)
     for i in range(n_bins):
         for j in range(n_bins):
-            # print("Starting round (", i, j, ")")
             try:
                 mask_ij = (x_data > x_linspace[i]) & (x_data < x_linspace[i + 1]) & (y_data > y_linspace[j]) & (
                         y_data < y_linspace[j + 1])
@@ -1758,19 +1757,16 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                                                                  ylim, n_bins=N_bin)
                 dos2 = det_bins2 / sample_pop_bins
 
-            mesh_N = 200j
-            adjust_bw = 0.5
+            mesh_N = 100j
             xi, yi = np.mgrid[xlim[0]:xlim[1]:mesh_N, ylim[0]:ylim[1]:mesh_N]
 
             kde_sample = gaussian_kde([x_sample, y_sample])
-            kde_sample.set_bandwidth(kde_sample.factor * adjust_bw)
             zi_sample = kde_sample(np.vstack([xi.flatten(), yi.flatten()]))
 
             kde_det = gaussian_kde([x_det, y_det])
-            kde_det.set_bandwidth(kde_det.factor * adjust_bw)
             zi_det = kde_det(np.vstack([xi.flatten(), yi.flatten()]))
 
-            threshold = 1e-4
+            threshold = 1e-2
             zi_sample[zi_sample < threshold * zi_sample.max()] = 0
 
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -1820,14 +1816,12 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
             xi_log, yi_log = np.mgrid[xlim_log[0]:xlim_log[1]:mesh_N, ylim_log[0]:ylim_log[1]:mesh_N]
 
             kde_sample_log = gaussian_kde([np.log10(x_sample), np.log10(y_sample)])
-            kde_sample_log.set_bandwidth(kde_sample_log.factor * adjust_bw)
             zi_sample_log = kde_sample_log(np.vstack([xi_log.flatten(), yi_log.flatten()]))
 
             kde_det_log = gaussian_kde([np.log10(x_det), np.log10(y_det)])
-            kde_det_log.set_bandwidth(kde_det_log.factor * adjust_bw)
             zi_det_log = kde_det_log(np.vstack([xi_log.flatten(), yi_log.flatten()]))
 
-            threshold_log = 1e-3
+            threshold_log = 1e-2
             zi_sample_log[zi_sample_log < threshold_log * zi_sample_log.max()] = 0
 
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -1855,7 +1849,7 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
             contourf_single_plot(xi_log, yi_log, dos_cont_log, dos_cont_dir,
                                  sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j]
                                  + "_log",
-                                 labels_log[i], labels_log[j], DoS=True, logb=True)
+                                 labels_log[i], labels_log[j], DoS=True)
 
     t2 = time.time()
     print("Time to calculate Depth of Search for", parameters[i], parameters[j], ": ", t2 - t1)
@@ -2066,8 +2060,8 @@ if __name__ == '__main__':
     """
     # Define the modes you want to run, demo1 and 'all' should be equivalent, 'demo1' is simply for backwards
     # compatibility
-    modes = ['all', 'det', 'non-det', 'char']
-
+    #modes = ['all', 'det', 'non-det', 'char']
+    modes = ['all']
     current_dir = Path(__file__).parent.resolve()
     parent_dir = current_dir.parent.resolve()
     results_path = parent_dir.resolve().joinpath("Results/")
