@@ -2040,7 +2040,7 @@ def run_it_and_save_it(results_path, modes=None):
     # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
     #rexo.__main__()
     # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
-    # gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
+    gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
 
     current_dir = Path(__file__).parent.resolve()
     exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
