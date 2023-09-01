@@ -1,6 +1,7 @@
 import get_data as gd
 import Run_ExoSims as rexo
 import matplotlib.pyplot as plt
+from matplotlib import colors
 import pandas as pd
 import numpy as np
 import sys
@@ -712,7 +713,7 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
             patch2 = mpatches.Patch(color=color2, label='# Detections')
             handles.extend([patch1, patch2])
 
-            plt.legend(handles=handles, fontsize=22)
+            plt.legend(loc='upper left', handles=handles, fontsize=22)
 
             plt.title("Integration Time and Detections of LIFEsim and EXOsim", fontsize=22)
             fig.subplots_adjust(bottom=0.3)
@@ -1060,41 +1061,6 @@ def kde_distribution_plot(data_d1, data_d2, result_path, name, xlabel, ylabel, x
     plt.clf()
 
     return 0
-
-
-def run_it_and_save_it(results_path, modes=None):
-    # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
-    rexo.__main__()
-    # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
-    gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
-
-    current_dir = Path(__file__).parent.resolve()
-    exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
-    life_output_path = current_dir.joinpath("Analysis/Output/LIFEsim")
-    if not os.path.exists(life_output_path):
-        os.makedirs(life_output_path)
-    stellar_cat_path = current_dir.joinpath("Analysis/Populations/TargetList_exosims.csv")
-
-    # Import DataFrames
-    if modes is None:
-        modes = ["demo1"]
-    for i in range(len(modes)):
-        life_data_nop, exo_data_nop = gd.import_data(exo_output_path, life_output_path, modes[i] + ".hdf5",
-                                                     stellar_cat_path)
-
-        # Add Planet Category
-        life_data = add_ptype_to_df(life_data_nop, "Kop2015")
-        exo_data_noHZ = add_ptype_to_df(exo_data_nop, "Kop2015")
-        print("Length before adding HZ:", len(exo_data_noHZ))
-        # Add HZ of LIFesim to EXOsim Data
-        exo_data = add_HZ_to_exo(exo_data_noHZ, life_data)
-        print("Length After adding HZ:", len(exo_data))
-
-        # Save DataFrames
-        life_data.to_csv(results_path.joinpath(modes[i] + "_life_data.csv"))
-        exo_data.to_csv(results_path.joinpath(modes[i] + "_exo_data.csv"))
-
-    return None
 
 
 def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
@@ -1539,7 +1505,7 @@ def bin_parameter_space(data, x_param, xlim, y_param, ylim, n_bins):
     return twod_param_p, twod_paramspace
 
 
-def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title, vmin=None, vmax=None):
+def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title, divnorm=None, cmap='plasma'):
     """
     Generates and displays a heatmap based on input data and parameters.
 
@@ -1564,12 +1530,11 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title
 
     # Choose a colormap for color coding (e.g., 'viridis', 'plasma', 'magma', 'inferno', etc.)
     # More colormaps: https://matplotlib.org/stable/tutorials/colors/colormaps.html
-    cmap = 'viridis'
 
     # Create the heatmap
     # For some reason it was flipped, by transposing you can fix it
     heatmap = plt.imshow(data.T, cmap=cmap, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect='auto',
-                         vmin=vmin, vmax=vmax)
+                         divnorm=divnorm)
     xi, yi = np.meshgrid(np.linspace(xlim[0], xlim[1], int(np.sqrt(dos_cont.shape[0]))),
                          np.linspace(ylim[0], ylim[1], int(np.sqrt(dos_cont.shape[0]))))
     # Add a colorbar
@@ -1660,22 +1625,31 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
         sim_name = ""
 
     # Setup: List of all the parameters, the labels and the limits
-    life_parameters = ["radius_p", "rp", "Mp", "distance_s"]
-    exo_parameters = ["radius_p", "distance_p", "Mp", "distance_s"]
+    life_parameters = ["radius_p", "rp", "rp_scaled", "Mp", "distance_s"]
+    exo_parameters = ["radius_p", "distance_p", "rp_scaled", "Mp", "distance_s"]
     if indicator == "LIFEsim":
         parameters = life_parameters
+        lum_string = "l_sun"
     elif indicator == "EXOSIMS":
         parameters = exo_parameters
+        lum_string = "L_star"
     else:
         raise ValueError("Indicator must be either <LIFEsim> or <EXOSIMS>")
         return None
 
-    labels_log = [r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{orbit}$ [AU]', r'$log_{10}\ M/M_{\oplus}$',
+    labels_log = [r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ d_{orbit}$ [AU]',
+                  r'$log_{10}\ d_{orbit, scaled}$ [AU/$\sqrt{L}$]', r'$log_{10}\ M/M_{\oplus}$',
                   r'$log_{10}\ d_{system}$ [pc]']
-    labels = [r'Planet Radius [$R_{\oplus}$]', "Orbital Distance [AU]", r'Planet Mass [$M_{\oplus}$]',
-              "System Distance [pc]"]
-    limits = [Rp_lim, d_orbit_lim, Mp_lim, d_system_lim]
-    limits_log = [Rp_lim_log, d_orbit_lim_log, Mp_lim_log, d_system_lim_log]
+    labels = [r'Planet Radius [$R_{\oplus}$]', "Orbital Distance [AU]", r'Orbital Distance Scaled [AU/$\sqrt{L}$]',
+              r'Planet Mass [$M_{\oplus}$]', "System Distance [pc]"]
+    limits = [Rp_lim, d_orbit_lim, d_orbit_scaled_lim, Mp_lim, d_system_lim]
+    limits_log = [Rp_lim_log, d_orbit_lim_log, d_orbit_scaled_lim_log, Mp_lim_log, d_system_lim_log]
+
+    sample_data.loc[:, "rp_scaled"] = sample_data[parameters[1]] / np.sqrt(sample_data[lum_string])
+    det_data.loc[:, "rp_scaled"] = det_data[parameters[1]] / np.sqrt(det_data[lum_string])
+    if det_data2 is not None:
+        det_data2.loc[:, "rp_scaled"] = det_data2["distance_p"] / np.sqrt(det_data2["L_star"])
+
 
     # Housekeeping with the number of bins
     N_bin += 1
@@ -1766,7 +1740,7 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
             kde_det = gaussian_kde([x_det, y_det])
             zi_det = kde_det(np.vstack([xi.flatten(), yi.flatten()]))
 
-            threshold = 1e-2
+            threshold = 1e-3
             zi_sample[zi_sample < threshold * zi_sample.max()] = 0
 
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -1775,11 +1749,14 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                 dos_cont = np.nan_to_num(dos_cont)
 
             plot_heatmap(dos, xlim, labels[i], ylim, labels[j], dos_cont, dos_discrete_dir,
-                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j])
+                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j],
+                         cmap='plasma')
 
             if det_data2 is not None:
+                divnorm = colors.TwoSlopeNorm(vmin=np.min(dos - dos2), vcenter=0., vmax=np.max(dos - dos2))
                 plot_heatmap(dos - dos2, xlim, labels[i], ylim, labels[j], dos_cont, dos_discrete_dir,
-                             sim_name + "Depth of Search Delta" + "_" + parameters[i] + "-" + parameters[j])
+                             sim_name + "Depth of Search Delta" + "_" + parameters[i] + "-" + parameters[j],
+                             divnorm=divnorm, cmap='bwr')
 
             contourf_single_plot(xi, yi, zi_sample, distr_cont_dir,
                                  sim_name + "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" +
@@ -1821,7 +1798,7 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
             kde_det_log = gaussian_kde([np.log10(x_det), np.log10(y_det)])
             zi_det_log = kde_det_log(np.vstack([xi_log.flatten(), yi_log.flatten()]))
 
-            threshold_log = 1e-2
+            threshold_log = 1e-3
             zi_sample_log[zi_sample_log < threshold_log * zi_sample_log.max()] = 0
 
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -1830,11 +1807,16 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                 dos_cont_log = np.nan_to_num(dos_cont_log)
 
             plot_heatmap(dos_log, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_cont_log, dos_discrete_dir,
-                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log")
+                         sim_name + "Depth of Search " + indicator + "_" + parameters[i] + "-" + parameters[j] + "_log",
+                         cmap='plasma')
 
             if det_data2 is not None:
-                plot_heatmap(dos_log - dos_log2, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_cont_log, dos_discrete_dir,
-                             sim_name + "Depth of Search Delta" + "_" + parameters[i] + "-" + parameters[j] + "_log")
+                divnorm_log  = colors.TwoSlopeNorm(vmin=np.min(dos_log - dos_log2), vcenter=0.,
+                                                   vmax=np.max(dos_log - dos_log2))
+                plot_heatmap(dos_log - dos_log2, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_cont_log,
+                             dos_discrete_dir,
+                             sim_name + "Depth of Search Delta" + "_" + parameters[i] + "-" + parameters[j] + "_log",
+                             divnorm=divnorm_log, cmap='bwr')
 
             contourf_single_plot(xi_log, yi_log, zi_sample_log, distr_cont_dir,
                                  sim_name + "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" +
@@ -1909,9 +1891,9 @@ def corner_plots(sample_data, life_det, exo_det, results_path):
     limits_log = [Rp_lim_log, d_orbit_lim_log, d_orbit_lim_log, Mp_lim_log, d_system_lim_log]
 
     # Add the scaled orbit distance to the dataframe
-    sample_data["rp_scaled"] = sample_data["rp"] / np.sqrt(sample_data["l_sun"])
-    life_det["rp_scaled"] = life_det["rp"] / np.sqrt(life_det["l_sun"])
-    exo_det["distance_p_scaled"] = exo_det["distance_p"] / np.sqrt(exo_det["L_star"])
+    sample_data.loc[:, "rp_scaled"] = sample_data["rp"] / np.sqrt(sample_data["l_sun"])
+    life_det.loc[:, "rp_scaled"] = life_det["rp"] / np.sqrt(life_det["l_sun"])
+    exo_det.loc[:, "distance_p_scaled"] = exo_det["distance_p"] / np.sqrt(exo_det["L_star"])
 
     sample_data_log = sample_data.applymap(lambda x: np.log10(x) if isinstance(x, (int, float)) else x)
     life_det_log = life_det.applymap(lambda x: np.log10(x) if isinstance(x, (int, float)) else x)
@@ -2054,13 +2036,49 @@ def plot_one_entire_mode(results_path, mode):
     return None
 
 
+def run_it_and_save_it(results_path, modes=None):
+    # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
+    #rexo.__main__()
+    # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
+    # gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
+
+    current_dir = Path(__file__).parent.resolve()
+    exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
+    life_output_path = current_dir.joinpath("Analysis/Output/LIFEsim")
+    if not os.path.exists(life_output_path):
+        os.makedirs(life_output_path)
+    stellar_cat_path = current_dir.joinpath("Analysis/Populations/TargetList_exosims.csv")
+
+    # Import DataFrames
+    if modes is None:
+        modes = ["demo1"]
+    for i in range(len(modes)):
+        life_data_nop, exo_data_nop = gd.import_data(exo_output_path, life_output_path, modes[i] + ".hdf5",
+                                                     stellar_cat_path)
+
+        # Add Planet Category
+        life_data = add_ptype_to_df(life_data_nop, "Kop2015")
+        exo_data_noHZ = add_ptype_to_df(exo_data_nop, "Kop2015")
+        print("Length before adding HZ:", len(exo_data_noHZ))
+        # Add HZ of LIFesim to EXOsim Data
+        exo_data = add_HZ_to_exo(exo_data_noHZ, life_data)
+        print("Length After adding HZ:", len(exo_data))
+
+        # Save DataFrames
+        life_data.to_csv(results_path.joinpath(modes[i] + "_life_data.csv"))
+        exo_data.to_csv(results_path.joinpath(modes[i] + "_exo_data.csv"))
+
+    return None
+
+
+
 if __name__ == '__main__':
     """
     Pre-Amble Starts here with defining paths, and running the two Sims via "run_it_and_save_it"
     """
     # Define the modes you want to run, demo1 and 'all' should be equivalent, 'demo1' is simply for backwards
     # compatibility
-    #modes = ['all', 'det', 'non-det', 'char']
+    # modes = ['det', 'non-det', 'char', 'all']
     modes = ['all']
     current_dir = Path(__file__).parent.resolve()
     parent_dir = current_dir.parent.resolve()

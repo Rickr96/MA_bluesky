@@ -193,7 +193,10 @@ def data_only_det(dataframe):
     :param dataframe: Dataframe containing the LIFEsim data
     :return: Dataframe containing only the detected planets
     """
-    dataframe = dataframe[dataframe['detected'] == 1]
+    # 1 Means detected; 2 means characterized, -1 means inside IWA, -2 means outside OWA --> -1 and -2 are filtered out
+    # even before coming here
+    mask = (dataframe['detected'] == 1) | (dataframe['detected'] == 2)
+    dataframe = dataframe[mask]
     return dataframe
 
 
@@ -258,25 +261,31 @@ def filter_exo_res(res, det_status):
     return a filtered res[systems]
     :param res: results from ExoSim
     :param det_status: string that shows what should be filtered: 0 = only non-detected planets, 1 = only detected
-    planets, -1 = characterized planets
+    planets, 2 = characterized planets
     :return:
     """
     res_filtered = dict()
     filtered_systems = dict()
     p_index_storage = []
     for row in res["DRM"]:
-        if "det_status" not in row.keys():
-            continue
-        for ix, det in enumerate(row["det_status"]):
-            if det == det_status:
-                p_index_storage.append(row["plan_inds"][ix])
+        if "char_status" in row.keys():
+            row["det_status"] = 2 * row["char_status"]
+        if det_status == 0:
+            for ix, det in enumerate(row["det_status"]):
+                if det == det_status or det == -1 or det == -2:
+                    p_index_storage.append(row["plan_inds"][ix])
+        else:
+            for ix, det in enumerate(row["det_status"]):
+                if det == det_status:
+                    p_index_storage.append(row["plan_inds"][ix])
 
     for key in res["systems"].keys():
         if key != 'MsTrue' and key != 'MsEst':
             values = [
                 res["systems"][key][i].value if isinstance(res["systems"][key][i], Quantity) else res["systems"][key][i]
                 for i in p_index_storage]
-            filtered_systems[key] = np.array(values) * res["systems"][key].unit if isinstance(res["systems"][key][0], Quantity) \
+            filtered_systems[key] = np.array(values) * res["systems"][key].unit if isinstance(res["systems"][key][0],
+                                                                                              Quantity) \
                 else np.array(values)
         else:
             filtered_systems[key] = res["systems"][key]
@@ -360,13 +369,16 @@ def pop_exo_to_life(pickle_path, star_cat_path, stellar_table_path, mode='demo1'
             res = filter_exo_res(res, 0)
             print("Passing only non-detected planets to LIFEsim")
         elif mode == 'char':
-            res = filter_exo_res(res, -1)
+            res = filter_exo_res(res, 2)
             print("Passing only characterized planets to LIFEsim")
         else:
             raise ValueError("Mode not recognized")
         # Planet Index
         pindex = list(np.arange(pindex_max, pindex_max + len(res["systems"]['plan2star'])))
-        pindex_max = pindex[-1] + 1
+        if len(pindex) == 0:
+            continue
+        else:
+            pindex_max = pindex[-1] + 1
 
         # Planet Radius
         Rp = res["systems"]['Rp']
@@ -584,13 +596,12 @@ def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
     for counter, f in enumerate(pklfiles):
         with open(f, "rb") as g:
             res = pickle.load(g, encoding="latin1")
-
         pinds, dets, WAs, dMag, rs, fEZ, fZs, dettime, chartime, tottime = [], [], [], [], [], [], [], [], [], []
         det_SNR, char_SNR, radius_p, semi_major, Ageo, ecc, Mp, FP = [], [], [], [], [], [], [], []
         star_name, stypes, Ds, L = [], [], [], []
         for row in res["DRM"]:
             if "char_status" in row.keys():
-                row["det_status"] = (-1) * row["char_status"]
+                row["det_status"] = (2) * row["char_status"]
             for ix, det in enumerate(row["det_status"]):
                 # Stellar Parameters
                 starname = row["star_name"]
@@ -606,11 +617,13 @@ def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
 
                 # Planet Index
                 pinds.append(row["plan_inds"][ix])
-                print(pinds)
-                print(pinds[-1])
 
-                # Detected or not 1 = detected -- full spectrum, 0 = not detected, -1 = partial spectrum
-                dets.append(det)
+                # Detected or not 1 = detected, 0 = not detected, -1 inside IWA, -2 Outside OWA, 2 characteirzed
+                # We don't care about IWA, OWA, just set it to 0
+                if det == -1 or det == -2:
+                    dets.append(0)
+                else:
+                    dets.append(det)
 
                 # Working Angle
                 if "det_params" in row.keys():
@@ -668,14 +681,12 @@ def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
                     charSNR = 0
                 det_SNR.append(detSNR)
                 char_SNR.append(charSNR)
-
                 # Planet Radius, Semi-major axis, Geometric Albedo, Eccentricity, Mass
                 radius_p.append(res["systems"]["Rp"][row["plan_inds"][ix]] / u.R_earth)
                 semi_major.append(res["systems"]["a"][row["plan_inds"][ix]].to("AU").value)
                 Ageo.append(res["systems"]["p"][row["plan_inds"][ix]])
                 ecc.append(res["systems"]["e"][row["plan_inds"][ix]])
                 Mp.append(res["systems"]["Mp"][row["plan_inds"][ix]] / u.M_earth)
-
                 # Incident Flux density for which stellar luminosity and planet distance are needed
                 L_dummy = star_cat.loc[star_cat['Name'] == starname, 'L'].iloc[0]
                 L.append(L_dummy)
@@ -706,7 +717,31 @@ def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
                                   'tottime': tottime,
                                   'Fp': FP
                                   })
-        df_exo = pd.concat([df_exo, planet_df], ignore_index=True)
+        # Because of Multivisits in ExoSim, we need to merge duplicates accordingly. Adding detection times, taking
+        # the maximum from the SNRs, keeping planetary parameters the same and so on
+        agg_funcs = {
+            'detSNR': 'max',  # Take the maximum SNR
+            'charSNR': 'max',  # Take the maximum SNR
+            'tottime': 'sum',  # Add the total times
+            'dettime': 'sum',  # Add the detection times
+            'chartime': 'sum',  # Add the characterization times
+            'WAs': 'max',  # Take the maximum WA
+            'dMags': 'min',  # Take the minimum dMag
+            'fZ': 'sum',  # Add the zodiacal brightness
+            'detected': 'max',  # If there is a 2 in detected, then
+            # the planet is characterized, if there is a 1 in detected, then the planet is detected, else it is not
+            # Add other columns here...
+        }
+        # Group by 'nuniverse', 'sname', and 'pindex', and apply aggregation functions
+        merged_df = planet_df.groupby(['nuniverse', 'sname', 'pindex']).agg(agg_funcs).reset_index()
+
+        # Merge the columns 'stype', 'radius_p', 'semimajor', etc.
+        # Assuming these columns have the same values within each group
+        cols_to_merge = ['fname', 'stype', 'radius_p', 'semimajor_p', 'Ageo', 'ecc', 'Mp', 'distance_p', 'fEZ', 'Fp', 'distance_s',
+                         'L_star']
+        merged_df[cols_to_merge] = \
+            planet_df.groupby(['nuniverse', 'sname', 'pindex'])[cols_to_merge].first().reset_index(drop=True)
+        df_exo = pd.concat([df_exo, merged_df], ignore_index=True)
 
         del res
 
@@ -751,7 +786,7 @@ def __main__(ppop_path_gd=None, life_results_path_gd=None, modes=None):
     stellar_table_path = current_dir.joinpath("Analysis/Populations/LIFEsim_StellarCat_Table.csv")
     stellar_cat_path = current_dir.joinpath("Analysis/Populations/TargetList_exosims.csv")
     lifesim_path = current_dir.parent.joinpath("LIFEsim-Rick_Branch")
-    print(modes)
+
     # Translate Exosim Data to LIFEsim Data and safe to LIFEsim Path
     if modes is None:
         # 'demo1' was the old name of the simulated universe, thus we just fill modes with that to go back to the old
@@ -782,4 +817,3 @@ def __main__(ppop_path_gd=None, life_results_path_gd=None, modes=None):
 
     for process in processes:
         process.join()
-
