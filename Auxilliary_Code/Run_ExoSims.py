@@ -155,5 +155,6 @@ def __main__():
     sim = EXOSIMS.MissionSim.MissionSim(scriptfile)
     exosim_run(sim, outpath, N_sim=50, nprocess=1, clear=True)
 
-
+# Getting a little scared here with the random shit that is going on with all of these
+# merger issues
 __main__()
