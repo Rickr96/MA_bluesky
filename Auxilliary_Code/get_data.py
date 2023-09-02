@@ -604,7 +604,6 @@ def import_data(exo_outpath, life_outpath, life_file_name, star_cat_path):
                 row["det_status"] = (2) * row["char_status"]
             for ix, det in enumerate(row["det_status"]):
                 # Stellar Parameters
-                print("row keys before starname assignment", row.keys())
                 starname = row["star_name"]
                 star_name.append(starname)
 

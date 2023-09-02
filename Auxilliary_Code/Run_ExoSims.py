@@ -153,4 +153,4 @@ def __main__():
     if not os.path.exists(outpath):
         os.makedirs(outpath)
     sim = EXOSIMS.MissionSim.MissionSim(scriptfile)
-    exosim_run(sim, outpath, N_sim=500, nprocess=1)
+    exosim_run(sim, outpath, N_sim=2, nprocess=1, clear=True)

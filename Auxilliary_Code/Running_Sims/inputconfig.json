@@ -2,7 +2,7 @@
     "cachedir": "/cachedir",
     "missionLife": 5.0,
     "missionStart": 64681,
-    "missionPortion": 0.5,
+    "missionPortion": 0.8,
     "GAPortion_SS": 0.5,
     "GA_simult_det_fraction": 0.0,
     "int_inflection": false,

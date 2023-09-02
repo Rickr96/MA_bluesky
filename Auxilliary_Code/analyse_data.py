@@ -80,149 +80,6 @@ def get_whitelist_from_diff(scen1, scen2, parameter: str, gol: str):
     return whitelist
 
 
-def table_to_plot(final_table, result_path):
-    """
-    :param result_path: Path to the folder where results shall be saved
-    :param final_table: A Pandas Dataframe containing the SNR results of the differenc scenarios and types
-                        that the class should have considered. Generally a direct output of the function
-                        scenario_snr_analysis
-    :return: Excel output file, Plot Version of the Excel output file, histogram of the different SNR and detections
-    """
-
-    # Checking if Path exists, otherwise creating folder
-    if not (os.path.exists(result_path)):
-        os.makedirs(result_path)
-
-    # Printing the Excel File
-    with pd.option_context('display.max_rows', None,
-                           'display.max_columns', None,
-                           'display.precision', 3,
-                           ):
-        print(final_table)
-
-    final_table.to_excel(result_path + "\output.xlsx")
-
-    ############################################################
-    # Preparing the Plot with X-Axis in split (sub-)categories #
-    ############################################################
-
-    # Getting Columns
-    column_names = final_table.columns
-
-    # Extract categories for x_axis of Histrograms and bar-plots
-    categories = final_table[column_names[0]]
-    ptypes = []
-    stypes = []
-
-    for cat_idx, cat in enumerate(categories):
-        planet = cat[0]
-        star = cat[1]
-        ptypes.append(planet)
-        stypes.append(star)
-    ptypes_set = list(set(ptypes))
-    stypes_set = list(set(stypes))
-    ptypes_unique = sorted(ptypes_set, key=ptypes.index)  # Reordering correctly
-    stypes_unique = sorted(stypes_set, key=stypes.index)  # Reordering correctly
-
-    # Construction Data Dictionary
-    dicp = dict()
-    dics = dict()
-
-    dicp_err = dict()
-    dics_err = dict()
-
-    dicp_det = dict()
-    dics_det = dict()
-
-    dicp_det_err = dict()
-    dics_det_err = dict()
-    for cat_idx in range(0, len(categories)):
-        dicsc = dict()  # reset scenario dictionary
-        dicsc_err = dict()
-        dicsc_det = dict()
-        dicsc_det_err = dict()
-        for scen_idx in np.arange(1, len(column_names)):
-            scen = column_names[scen_idx]  # getting Scenario Name as str
-            val_line = final_table[scen][cat_idx]  # Getting Values from Scenario Value list
-            SNR = float(val_line[0])  # as floats
-            SNR_std = float(val_line[1])
-            ndet = float(val_line[2])  # or ints
-            ndet_err = float(val_line[3])  # or floats
-            ntot = int(val_line[4])
-
-            scen_short = scen[:2]  # shortening scen name for table
-            dicsc[str(scen_short)] = SNR  # write SNR data into scenario dictionary
-            dicsc_err[str(scen_short)] = SNR_std
-            dicsc_det[str(scen_short)] = ndet
-            dicsc_det_err[str(scen_short)] = ndet_err
-
-        dics[stypes[cat_idx]] = dicsc  # fill solar dictionary with the scenario dictionaries
-        dics_err[stypes[cat_idx]] = dicsc_err
-        dics_det[stypes[cat_idx]] = dicsc_det
-        dics_det_err[stypes[cat_idx]] = dicsc_det_err
-
-        if cat_idx == (len(categories) - 1):
-            dicp[ptypes[cat_idx]] = dics  # fill planetary dictionary with the solar dictionaries
-            dicp_err[ptypes[cat_idx]] = dics_err
-            dicp_det[ptypes[cat_idx]] = dics_det
-            dicp_det_err[ptypes[cat_idx]] = dics_det_err
-
-        # only when next planet type is different we want to write into planetary dictionary and reset solar dictionary
-        elif ptypes[cat_idx] != ptypes[cat_idx + 1]:
-            dicp[ptypes[cat_idx]] = dics
-            dicp_err[ptypes[cat_idx]] = dics_err
-            dicp_det[ptypes[cat_idx]] = dics_det
-            dicp_det_err[ptypes[cat_idx]] = dics_det_err
-            dics = dict()  # reset solar dictionary
-            dics_err = dict()
-            dics_det = dict()
-            dics_det_err = dict()
-
-    # Split the Dictionary into sub Dics such that the Plot is not too large
-    n_graphs = 5
-    for pix in range(0, n_graphs):
-        # only 3 entries (hot, warm, cold) for each graph --> As we have 15 total cats, we split it into 5
-        subdic = dict(list(dicp.items())[((pix * len(dicp)) // n_graphs):(((1 + pix) * len(dicp)) // n_graphs)])
-        subdic_err = dict(
-            list(dicp_err.items())[((pix * len(dicp_err)) // n_graphs):(((1 + pix) * len(dicp_err)) // n_graphs)])
-        subdic_det = dict(
-            list(dicp_det.items())[((pix * len(dicp_det)) // n_graphs):(((1 + pix) * len(dicp_det)) // n_graphs)])
-        subdic_det_err = dict(
-            list(dicp_det_err.items())[
-            ((pix * len(dicp_det_err)) // n_graphs):(((1 + pix) * len(dicp_det_err)) // n_graphs)])
-
-        # Plot the finished full Dictionary
-        fig = plt.figure(figsize=(15, 10))
-
-        ax2 = fig.add_subplot(1, 1, 1)
-        color2 = 'g'
-        label_group_bar(ax2, subdic_det, color2, subdic_det_err)
-        ax2.set_ylabel('Number of Detections', fontsize=22)
-
-        ax1 = ax2.twinx()
-        color1 = 'mediumblue'
-        label_group_point(ax1, subdic, color1, subdic_err)
-        ax1.set_ylabel('SNR', fontsize=22)
-
-        # Creating Manual Legend
-        handles, labels = plt.gca().get_legend_handles_labels()
-        patch1 = mpatches.Patch(color=color1, label='SNR')
-        patch2 = mpatches.Patch(color=color2, label='Detections')
-        handles.extend([patch1, patch2])
-
-        plt.legend(handles=handles, fontsize=22)
-
-        plt.title("SNR and Detections of LIFEsim Run", fontsize=22)
-        fig.subplots_adjust(bottom=0.3)
-        savestring = result_path + "\\" + ptypes_unique[(pix * 3)] + ".pdf"  # *3 because hot, warm, cold
-        fig.savefig(savestring)
-
-        if pix >= n_graphs - 1:
-            break
-
-    return "Analysis Done"
-
-
 def mk_groups(data):
     try:
         newdata = data.items()
@@ -726,6 +583,39 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
     return None
 
 
+def observation_ratios(df_life, df_exo, ptypes, stypes, result_path):
+    """
+    Plots the observation ratios of the different planet types and stellar types, as well as for the habitable
+    zone and not habitable zone around different stellar types
+    :param df_life:
+    :param df_exo:
+    :param ptypes:
+    :param stypes:
+    :param result_path:
+    :return:
+    """
+    data = pd.DataFrame(columns=['stype', 'habitable', 'ptypes', 'total_LIFE', 'detected_LIFE',
+                                 'total_EXO', 'detected_EXO', 'ratio_LIFE', 'ratio_EXO'])
+    for stype in stypes:
+        for ptype in ptypes:
+            for hab_status in [True, False]:
+                mask_life = (df_life['stype'] == stype) & (df_life['ptype'] == ptype) & (df_life['habitable'] == hab_status)
+                mask_exo = (df_exo['stype'] == stype) & (df_exo['ptype'] == ptype) & (df_exo['habitable'] == hab_status)
+                total_life = len(df_life[mask_life])
+                total_exo = len(df_exo[mask_exo])
+                detected_life = len(df_life[mask_life & (df_life['detected'] == True)])
+                detected_exo = len(df_exo[mask_exo & (df_exo['detected'] == True)])
+                ratio_life = detected_life / total_life
+                ratio_exo = detected_exo / total_exo
+                data = data.append({'stype': stype, 'habitable': hab_status, 'ptypes': ptype, 'total_LIFE': total_life,
+                                    'detected_LIFE': detected_life, 'total_EXO': total_exo, 'detected_EXO': detected_exo,
+                                    'ratio_LIFE': ratio_life, 'ratio_EXO': ratio_exo}, ignore_index=True)
+
+    data.to_csv(results_path.joinpath("Observation_Ratios.csv"), index=False)
+
+    return None
+
+
 def kde_distr_plot(life_data_d, exo_data_d, sample_data_d, result_path, name, xlabel, xlim,
                    detected=False, draw_HZ=False, HZ_inner=None, HZ_outer=None, log=False):
     """
@@ -1079,6 +969,8 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     bar_cat_plot(life_data, exo_data, habitables, 'habitable', stypes, 'stype', save=True, result_path=results_path,
                  name="habitable_stypes")
 
+    observation_ratios(life_data, exo_data, ptypes, stypes, results_path)
+
     ##################################
     # Population Sample Histograms ###
     ##################################
@@ -1244,7 +1136,8 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
         # log-log
         # TODO for some reason, the log plot for Rp-MP and Rp-Mp only halves the axis labels and the number of detections, but
         # TODO only when running on bluesky. When running locally this bug does not appear
-        kde_distribution_plot(np.log10(exo_data_det["radius_p"].astype(float)), np.log10(exo_data_det["Mp"].astype(float)),
+        kde_distribution_plot(np.log10(exo_data_det["radius_p"].astype(float)),
+                              np.log10(exo_data_det["Mp"].astype(float)),
                               results_path, "EXOsim Detected Rp-Mp log-log",
                               r'$log_{10}\ R/R_{\oplus}$', r'$log_{10}\ M/M_{\oplus}$',
                               xlim=Rp_lim_log, ylim=Mp_lim_log, detected=True)
@@ -1312,7 +1205,8 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
                               "EXOsim Detected d_orbit-d_s",
                               "Orbital Distance [AU]", "System Distance [pc]",
                               xlim=d_orbit_lim, ylim=d_system_lim, detected=True)
-        kde_distribution_plot(life_data_det["rp"].astype(float), life_data_det["distance_s"].astype(float), results_path,
+        kde_distribution_plot(life_data_det["rp"].astype(float), life_data_det["distance_s"].astype(float),
+                              results_path,
                               "LIFEsim Detected d_orbit-d_s",
                               "Orbital Distance [AU]", "System Distance [pc]",
                               xlim=d_orbit_lim, ylim=d_system_lim, detected=True)
@@ -1650,7 +1544,6 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
     if det_data2 is not None:
         det_data2.loc[:, "rp_scaled"] = det_data2["distance_p"] / np.sqrt(det_data2["L_star"])
 
-
     # Housekeeping with the number of bins
     N_bin += 1
 
@@ -1753,7 +1646,8 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                          cmap='plasma')
 
             if det_data2 is not None:
-                divnorm = colors.TwoSlopeNorm(vmin=np.min(dos - dos2), vcenter=0., vmax=np.max(dos - dos2))
+                vextreme = np.max(np.abs(dos - dos2))
+                divnorm = colors.TwoSlopeNorm(vmin=-vextreme, vcenter=0., vmax=vextreme)
                 plot_heatmap(dos - dos2, xlim, labels[i], ylim, labels[j], dos_cont, dos_discrete_dir,
                              sim_name + "Depth of Search Delta" + "_" + parameters[i] + "-" + parameters[j],
                              divnorm=divnorm, cmap='bwr')
@@ -1811,8 +1705,9 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                          cmap='plasma')
 
             if det_data2 is not None:
-                divnorm_log  = colors.TwoSlopeNorm(vmin=np.min(dos_log - dos_log2), vcenter=0.,
-                                                   vmax=np.max(dos_log - dos_log2))
+                vextreme_log = np.max(np.abs(dos_log - dos_log2))
+                divnorm_log = colors.TwoSlopeNorm(vmin=-vextreme_log, vcenter=0.,
+                                                  vmax=vextreme_log)
                 plot_heatmap(dos_log - dos_log2, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_cont_log,
                              dos_discrete_dir,
                              sim_name + "Depth of Search Delta" + "_" + parameters[i] + "-" + parameters[j] + "_log",
@@ -2038,9 +1933,9 @@ def plot_one_entire_mode(results_path, mode):
 
 def run_it_and_save_it(results_path, modes=None):
     # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
-    #rexo.__main__()
+    rexo.__main__()
     # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
-    #gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
+    gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
 
     current_dir = Path(__file__).parent.resolve()
     exo_output_path = current_dir.joinpath("Analysis/Output/EXOSIMS")
@@ -2069,7 +1964,6 @@ def run_it_and_save_it(results_path, modes=None):
         exo_data.to_csv(results_path.joinpath(modes[i] + "_exo_data.csv"))
 
     return None
-
 
 
 if __name__ == '__main__':
