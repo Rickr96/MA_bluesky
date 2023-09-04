@@ -546,7 +546,6 @@ def pop_exo_to_life(pickle_path, star_cat_path, stellar_table_path, mode='demo1'
     for ix, sname in enumerate(df_life['name_s']):
         nstar.append(s_names_uniq.index(sname))
     df_life['nstar'] = nstar
-
     return df_life
 
 
