@@ -250,7 +250,7 @@ def add_ptype_to_df(df, ptypes):
                 if df['Fp'][i] > 1.65:
                     df_ptypes.loc[i] = 'Hot Sub-Jovian'
                 elif df['Fp'][i] > 0.40:
-                    df_ptypes.loc[i] = 'Warm Sub_Jovian'
+                    df_ptypes.loc[i] = 'Warm Sub-Jovian'
                 else:
                     df_ptypes.loc[i] = 'Cold Sub-Jovian'
             else:
@@ -324,7 +324,7 @@ def detection_statistics(df, first_param, first_param_str, second_param, second_
                    & (df['nuniverse'] == nuni)
 
         det_uni_data = (df[mask]['detected'])
-        det_uni = np.sum(det_uni_data * (det_uni_data == 1))
+        det_uni = np.sum(det_uni_data * (det_uni_data > 0))
         det_list.append(det_uni)
     det_array = np.array(det_list)
     mean = det_array.mean()
@@ -335,8 +335,56 @@ def detection_statistics(df, first_param, first_param_str, second_param, second_
     return mean, std_dev
 
 
+def det_ratio_statistics(df, first_param, first_param_str, second_param, second_param_str):
+    """
+    Calculates the detection statistics for a given planet type and star type accounting for the "different" statistics
+    of the binary nature of detections to sum over detections per universe and only then take the mean.
+    :param df: dataframe either from EXOsim or LIFEsim
+    :param first_param: first parameter over which we want the statistics e.g. planet type
+    :param second_param: second parameter over which we want the statistics e.g.stellar type
+    :param first_param_str: string first parameter over which we take the statistics
+    :param second_param_str: string second parameter over which we take the statistics
+    :return: mean and standard deviation over all universe realizations for the given planet and stellar type of the
+    detections of that planet type around that stellar type.
+    """
+    Nuni_max = max(df["nuniverse"])
+    det_list, obs_list = [], []
+    for nuni in np.arange(Nuni_max + 1):
+        if second_param_str == 'stype':
+            mask = (df[first_param_str] == first_param) \
+                   & (df[second_param_str].str[0] == second_param) \
+                   & (df['nuniverse'] == nuni)
+        else:
+            mask = (df[first_param_str] == first_param) \
+                   & (df[second_param_str] == second_param) \
+                   & (df['nuniverse'] == nuni)
+
+        det_uni_data = (df[mask]['detected'])
+        det_uni = np.sum(det_uni_data * (det_uni_data > 0))
+        if 'int_time' in df.columns:
+            masked_df = df[mask]
+            det_obs_mask = masked_df['int_time'] > 0
+            obs_uni = len(list(set(masked_df[det_obs_mask]['name_s'])))  # Only unique systems
+        else:
+            masked_df = df[mask]
+            det_obs_mask = masked_df['tottime'] > 0
+            obs_uni = len(list(set(masked_df[det_obs_mask]['sname'])))  # Only unique systems
+        det_list.append(det_uni)
+        obs_list.append(obs_uni)
+    det_array = np.array(det_list)
+    obs_array = np.array(obs_list)
+    ratio_array = det_array / obs_array
+    ratio_array = np.nan_to_num(ratio_array)
+    mean = ratio_array.mean()
+    std_dev = ratio_array.std()
+    mean = round(mean, ndigits=2)
+    std_dev = round(std_dev, ndigits=2)
+
+    return mean, std_dev
+
+
 def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, second_param_str,
-                 save=False, result_path=None, name="bar_cat_plot"):
+                 save=False, result_path=None, name="bar_cat_plot", ratio=False):
     """
     Plots the SNR and detections like I did in the Semester Thesis
     :param name: name of the plot
@@ -378,8 +426,12 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
                 std_dettime_life = (life_percentile_90 - life_percentile_10) / 2
             else:
                 std_dettime_life = 0
-            mean_det_life, std_det_life = detection_statistics(df_life, first_param, first_param_str,
-                                                               second_param, second_param_str)
+            if ratio:
+                mean_det_life, std_det_life = det_ratio_statistics(df_life, first_param, first_param_str,
+                                                                   second_param, second_param_str)
+            else:
+                mean_det_life, std_det_life = detection_statistics(df_life, first_param, first_param_str,
+                                                                   second_param, second_param_str)
             total_planets_life = len(df_life[life_mask])
 
             ################
@@ -410,7 +462,12 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
             if np.isnan(mean_dettime_life):
                 mean_dettime_life = 0
                 std_dettime_life = 0
-            mean_det_exo, std_det_exo = detection_statistics(df_exo, first_param, first_param_str,
+
+            if ratio:
+                mean_det_exo, std_det_exo = det_ratio_statistics(df_exo, first_param, first_param_str,
+                                                                 second_param, second_param_str)
+            else:
+                mean_det_exo, std_det_exo = detection_statistics(df_exo, first_param, first_param_str,
                                                              second_param, second_param_str)
             total_planets_exo = len(df_exo[exo_mask])
 
@@ -513,7 +570,10 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
             ax2 = fig.add_subplot(1, 1, 1)
             color2 = 'g'
             label_group_bar(ax2, subdic_det, color2, subdic_det_err)
-            ax2.set_ylabel('Number of Detections', fontsize=22)
+            if ratio:
+                ax2.set_ylabel('Detection to Observation Ratio', fontsize=22)
+            else:
+                ax2.set_ylabel('Number of Detections', fontsize=22)
 
             ax1 = ax2.twinx()
             color1 = 'mediumblue'
@@ -523,12 +583,18 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
             # Creating Manual Legend
             handles, labels = plt.gca().get_legend_handles_labels()
             patch1 = mpatches.Patch(color=color1, label='SNR')
-            patch2 = mpatches.Patch(color=color2, label='Detections')
+            if ratio:
+                patch2 = mpatches.Patch(color=color2, label='Detection Ratio')
+            else:
+                patch2 = mpatches.Patch(color=color2, label='Detections')
             handles.extend([patch1, patch2])
 
             plt.legend(handles=handles, fontsize=22)
 
-            plt.title("Detections and Detection Time of LIFEsim and EXOsim split by planetary type", fontsize=18)
+            if ratio:
+                plt.title("Detection Ratio and Detection Time of LIFEsim and EXOsim", fontsize=18)
+            else:
+                plt.title("Detections and Detection Time of LIFEsim and EXOsim", fontsize=18)
             fig.subplots_adjust(bottom=0.3)
             if save:
                 savestring = result_path.joinpath(
@@ -557,7 +623,10 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
             ax2 = fig.add_subplot(1, 1, 1)
             color2 = 'g'
             label_group_bar(ax2, subdic_det, color2, subdic_det_err)
-            ax2.set_ylabel('Number of Detections', fontsize=22)
+            if ratio:
+                ax2.set_ylabel('Detection to Observation Ratio', fontsize=22)
+            else:
+                ax2.set_ylabel('Number of Detections', fontsize=22)
 
             ax1 = ax2.twinx()
             color1 = 'mediumblue'
@@ -567,12 +636,18 @@ def bar_cat_plot(df_life, df_exo, first_params, first_param_str, second_params, 
             # Creating Manual Legend
             handles, labels = plt.gca().get_legend_handles_labels()
             patch1 = mpatches.Patch(color=color1, label='Integration Time')
-            patch2 = mpatches.Patch(color=color2, label='# Detections')
+            if ratio:
+                patch2 = mpatches.Patch(color=color2, label='Detection Ratio')
+            else:
+                patch2 = mpatches.Patch(color=color2, label='# Detections')
             handles.extend([patch1, patch2])
 
             plt.legend(loc='upper left', handles=handles, fontsize=22)
 
-            plt.title("Integration Time and Detections of LIFEsim and EXOsim", fontsize=22)
+            if ratio:
+                plt.title("Integration Time and Detection Ratio of LIFEsim and EXOsim", fontsize=22)
+            else:
+                plt.title("Integration Time and Detections of LIFEsim and EXOsim", fontsize=22)
             fig.subplots_adjust(bottom=0.3)
             if save:
                 savestring = result_path.joinpath(name + ".pdf")
@@ -594,24 +669,81 @@ def observation_ratios(df_life, df_exo, ptypes, stypes, result_path):
     :param result_path:
     :return:
     """
-    data = pd.DataFrame(columns=['stype', 'habitable', 'ptypes', 'total_LIFE', 'detected_LIFE',
-                                 'total_EXO', 'detected_EXO', 'ratio_LIFE', 'ratio_EXO'])
+    stypesd, ptypesd, habd, total_lifed, detected_lifed, total_exod, detected_exod, ratio_lifed, \
+        ratio_exod, observed_lifed, observed_exod, \
+        inttime_lifed, inttime_exod = [], [], [], [], [], [], [], [], [], [], [], [], []
+    N_univ = max(df_life["nuniverse"])
+
     for stype in stypes:
         for ptype in ptypes:
             for hab_status in [True, False]:
-                mask_life = (df_life['stype'] == stype) & (df_life['ptype'] == ptype) & (df_life['habitable'] == hab_status)
-                mask_exo = (df_exo['stype'] == stype) & (df_exo['ptype'] == ptype) & (df_exo['habitable'] == hab_status)
-                total_life = len(df_life[mask_life])
-                total_exo = len(df_exo[mask_exo])
-                detected_life = len(df_life[mask_life & (df_life['detected'] == True)])
-                detected_exo = len(df_exo[mask_exo & (df_exo['detected'] == True)])
-                ratio_life = detected_life / total_life
-                ratio_exo = detected_exo / total_exo
-                data = data.append({'stype': stype, 'habitable': hab_status, 'ptypes': ptype, 'total_LIFE': total_life,
-                                    'detected_LIFE': detected_life, 'total_EXO': total_exo, 'detected_EXO': detected_exo,
-                                    'ratio_LIFE': ratio_life, 'ratio_EXO': ratio_exo}, ignore_index=True)
+                mask_life = (df_life['stype'] == stype) & (df_life['ptype'] == ptype) & (
+                            df_life['habitable'] == hab_status)
+                mask_exo = (df_exo['stype'].str[0] == stype) & (df_exo['ptype'] == ptype) & (
+                            df_exo['habitable'] == hab_status)
+                masked_life, masked_exo = df_life[mask_life], df_exo[mask_exo]
+                total_life = len(masked_life) / N_univ
+                total_exo = len(masked_exo) / N_univ
+                observed_sys_life, observed_sys_exo = [], []
+                for i in range(N_univ):
+                    observed_mask_life = (masked_life["int_time"] > 0) & (masked_life["nuniverse"] == i)
+                    observed_mask_exo = (masked_exo["tottime"] > 0) & (masked_exo["nuniverse"] == i)
+                    more_masked_life, more_masked_exo = masked_life[observed_mask_life], masked_exo[observed_mask_exo]
+                    # get rid of multiple planet observations per system
+                    observed_sys_life.append(len(list(set(more_masked_life["name_s"]))))
+                    observed_sys_exo.append(len(list(set(more_masked_exo["sname"]))))
+                observed_life = np.mean(observed_sys_life)
+                observed_exo = np.mean(observed_sys_exo)
 
-    data.to_csv(results_path.joinpath("Observation_Ratios.csv"), index=False)
+                # Inttime per system
+                if observed_life == 0:
+                    inttime_life = 0
+                else:
+                    inttime_life = sum(df_life[mask_life]["int_time"]) / (3600 * observed_life * N_univ)
+                if observed_exo == 0:
+                    inttime_exo = 0
+                else:
+                    inttime_exo = 24 * sum(df_exo[mask_exo]["tottime"]) / (observed_exo * N_univ)
+
+                detected_life = len(gd.data_only_det(df_life[mask_life])) / N_univ
+                detected_exo = len(gd.data_only_det(df_exo[mask_exo])) / N_univ
+                if observed_life == 0:
+                    ratio_life = 0
+                else:
+                    ratio_life = detected_life / observed_life
+                if observed_exo == 0:
+                    ratio_exo = 0
+                else:
+                    ratio_exo = detected_exo / observed_life
+                stypesd.append(stype)
+                ptypesd.append(ptype)
+                habd.append(hab_status)
+                total_lifed.append(total_life)
+                detected_lifed.append(detected_life)
+                total_exod.append(total_exo)
+                detected_exod.append(detected_exo)
+                ratio_lifed.append(ratio_life)
+                ratio_exod.append(ratio_exo)
+                observed_lifed.append(observed_life)
+                observed_exod.append(observed_exo)
+                inttime_lifed.append(inttime_life)
+                inttime_exod.append(inttime_exo)
+
+    new_data = pd.DataFrame({'stype': stypesd,
+                             'habitable': habd,
+                             'ptypes': ptypesd,
+                             'LIFE: Total Systems per Universe': total_lifed,
+                             'LIFE: Systems observed per Universe': observed_lifed,
+                             'LIFE: Detected Planets per Universe': detected_lifed,
+                             'EXO: Total Systems per Universe': total_exod,
+                             'EXO: Systems observed per Universe': observed_exod,
+                             'EXO: Detected Planets per Universe': detected_exod,
+                             'LIFE: Ratio detected / observed': ratio_lifed,
+                             'EXO: Ratio detected / observed': ratio_exod,
+                             'LIFE: Mean integration time': inttime_lifed,
+                             'EXO: Mean integration time': inttime_exod})
+
+    new_data.to_csv(result_path.joinpath("Observation_Ratios.csv"), index=False)
 
     return None
 
@@ -968,6 +1100,12 @@ def plots(life_data, exo_data, life_data_det, exo_data_det, results_path):
     habitables = [True, False]
     bar_cat_plot(life_data, exo_data, habitables, 'habitable', stypes, 'stype', save=True, result_path=results_path,
                  name="habitable_stypes")
+
+    bar_cat_plot(life_data, exo_data, ptypes, 'ptype', stypes, 'stype', save=True, result_path=results_path,
+                 name="Ratio_ptypes_stypes", ratio=True)
+
+    bar_cat_plot(life_data, exo_data, habitables, 'habitable', stypes, 'stype', save=True, result_path=results_path,
+                 name="Ratio_habitable_stypes", ratio=True)
 
     observation_ratios(life_data, exo_data, ptypes, stypes, results_path)
 
@@ -1399,7 +1537,7 @@ def bin_parameter_space(data, x_param, xlim, y_param, ylim, n_bins):
     return twod_param_p, twod_paramspace
 
 
-def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title, divnorm=None, cmap='plasma'):
+def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title, vmin=None, vmax=None, cmap='plasma'):
     """
     Generates and displays a heatmap based on input data and parameters.
 
@@ -1428,7 +1566,7 @@ def plot_heatmap(data, xlim, xlable, ylim, ylable, dos_cont, results_path, title
     # Create the heatmap
     # For some reason it was flipped, by transposing you can fix it
     heatmap = plt.imshow(data.T, cmap=cmap, origin='lower', extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect='auto',
-                         norm=divnorm)
+                         vmin=vmin, vmax=vmax)
     xi, yi = np.meshgrid(np.linspace(xlim[0], xlim[1], int(np.sqrt(dos_cont.shape[0]))),
                          np.linspace(ylim[0], ylim[1], int(np.sqrt(dos_cont.shape[0]))))
     # Add a colorbar
@@ -1646,11 +1784,11 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                          cmap='plasma')
 
             if det_data2 is not None:
-                vextreme = np.max(np.abs(dos - dos2))
-                divnorm = colors.TwoSlopeNorm(vmin=-vextreme, vcenter=0., vmax=vextreme)
+                vextreme = max(abs(np.nanmin(dos - dos2)), abs(np.nanmax(dos - dos2)))
+                print('vextreme is:', vextreme)
                 plot_heatmap(dos - dos2, xlim, labels[i], ylim, labels[j], dos_cont, dos_discrete_dir,
                              sim_name + "Depth of Search Delta" + "_" + parameters[i] + "-" + parameters[j],
-                             divnorm=divnorm, cmap='bwr')
+                             vmin=-vextreme, vmax=vextreme, cmap='bwr')
 
             contourf_single_plot(xi, yi, zi_sample, distr_cont_dir,
                                  sim_name + "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" +
@@ -1705,13 +1843,12 @@ def dos_analysis_naive(sample_data, det_data, results_path, indicator, N_bin=25,
                          cmap='plasma')
 
             if det_data2 is not None:
-                vextreme_log = np.max(np.abs(dos_log - dos_log2))
-                divnorm_log = colors.TwoSlopeNorm(vmin=-vextreme_log, vcenter=0.,
-                                                  vmax=vextreme_log)
+                vextreme_log = max(abs(np.nanmin(dos_log - dos_log2)), abs(np.nanmax(dos_log - dos_log2)))
+                print('vextreme_log is:', vextreme_log)
                 plot_heatmap(dos_log - dos_log2, xlim_log, labels_log[i], ylim_log, labels_log[j], dos_cont_log,
                              dos_discrete_dir,
                              sim_name + "Depth of Search Delta" + "_" + parameters[i] + "-" + parameters[j] + "_log",
-                             divnorm=divnorm_log, cmap='bwr')
+                             vmin=-vextreme_log, vmax=vextreme_log, cmap='bwr')
 
             contourf_single_plot(xi_log, yi_log, zi_sample_log, distr_cont_dir,
                                  sim_name + "Distribution Sample Population" + indicator + "_" + parameters[i] + "-" +
@@ -1933,7 +2070,7 @@ def plot_one_entire_mode(results_path, mode):
 
 def run_it_and_save_it(results_path, modes=None):
     # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
-    rexo.__main__()
+    #rexo.__main__()
     # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
     gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
 
@@ -1972,14 +2109,14 @@ if __name__ == '__main__':
     """
     # Define the modes you want to run, demo1 and 'all' should be equivalent, 'demo1' is simply for backwards
     # compatibility
-    # modes = ['det', 'non-det', 'char', 'all']
-    modes = ['all']
+    modes = ['all', 'det', 'non-det', 'char']
+    # modes = ['all']
     current_dir = Path(__file__).parent.resolve()
     parent_dir = current_dir.parent.resolve()
     results_path = parent_dir.resolve().joinpath("Results/")
 
     # IF YOU ALREADY HAVE SIMULATION RESULTS OF BOTH LIFESIM AND EXOsim IN THE REQUIRED CSV FORMAT, YOU CAN COMMENT OUT
-    run_it_and_save_it(results_path, modes=modes)
+    # run_it_and_save_it(results_path, modes=modes)
 
     """
     After Sims were run and saved (whether it happened during the same run or the results are already saved because the Sims
