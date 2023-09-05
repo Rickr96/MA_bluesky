@@ -2109,8 +2109,8 @@ if __name__ == '__main__':
     """
     # Define the modes you want to run, demo1 and 'all' should be equivalent, 'demo1' is simply for backwards
     # compatibility
-    modes = ['all', 'det', 'non-det', 'char']
-    # modes = ['all']
+    #modes = ['all', 'det', 'non-det', 'char']
+    modes = ['all']
     current_dir = Path(__file__).parent.resolve()
     parent_dir = current_dir.parent.resolve()
     results_path = parent_dir.resolve().joinpath("Results/")
