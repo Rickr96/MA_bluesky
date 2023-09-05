@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # ---------- Loading the Catalog ----------
     bus.data.catalog_from_ppop(input_path=str(ppop_path))
 
-    bus.data.catalog_remove_distance(stype=0, mode='larger', dist=0.)  # remove all A stars
+    bus.data.catalog_remove_distance(stype='A', mode='larger', dist=0.)  # remove all A stars
     # bus.data.catalog_remove_distance(stype=4, mode='larger', dist=10.)  # remove M stars > 10pc to
     # speed up calculation
 

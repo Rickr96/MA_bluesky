@@ -2070,7 +2070,7 @@ def plot_one_entire_mode(results_path, mode):
 
 def run_it_and_save_it(results_path, modes=None):
     # Run EXOsim in the given config as highlighted in Run_EXOsim.py and the input config file
-    #rexo.__main__()
+    # rexo.__main__()
     # Get the produced EXOsim data, convert it to LIFEsim and run LIFEsim with that according to the get_data.py code
     gd.__main__(ppop_path_gd=None, life_results_path_gd=None, modes=modes)
 
@@ -2109,8 +2109,8 @@ if __name__ == '__main__':
     """
     # Define the modes you want to run, demo1 and 'all' should be equivalent, 'demo1' is simply for backwards
     # compatibility
-    modes = ['det', 'non-det', 'char']
-    #modes = ['all']
+    #modes = ['det', 'non-det', 'char']
+    modes = ['det']
     current_dir = Path(__file__).parent.resolve()
     parent_dir = current_dir.parent.resolve()
     results_path = parent_dir.resolve().joinpath("Results/")
