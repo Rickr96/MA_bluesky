@@ -13,9 +13,6 @@ if __name__ == '__main__':
 
     # ---------- Set-Up ----------
     ppop_path = sys.argv[1]
-    print(sys.argv[0])
-    print(sys.argv[1])
-    print(sys.argv[2])
     # create bus
     bus = lifesim.Bus()
 
@@ -78,6 +75,5 @@ if __name__ == '__main__':
 
     opt.ahgs()
     output_dir = sys.argv[2]
-    # output_dir = parent_dir.joinpath('Auxilliary_Code/Analysis/Output/LIFEsim/demo1.hdf5')
     # ---------- Saving the Results ----------
     bus.data.export_catalog(output_path=str(output_dir))
